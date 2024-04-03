@@ -1,0 +1,9 @@
+.env
+*org
+*\.orig
+*\.rej
+*~
+*swp
+Session.vim
+vimsession_*
+.vimrc
