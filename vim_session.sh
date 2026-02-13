@@ -4,7 +4,7 @@ doc=
 if [[ $1 == "doc" ]]
 then
   doc="_doc"
-  doc/desc_git.sh
+  doc/tools/desc_git.sh
   if [[ $2 ]]
   then
     branch=$2
