@@ -1,9 +1,21 @@
-.env
 *org
 *\.orig
 *\.rej
 *~
 *swp
-Session.vim
-vimsession_*
-.vimrc
+.env
+
+# Configuration privée et variantes locales
+.env.*
+!.env.example
+
+# Fichiers générés par Python et les outils de test
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Sauvegardes et clés privées locales
+*.wtpatch.zip*
+*.pem
+*.key

@@ -1,0 +1,245 @@
+# Workflow quotidien avec les worktrees
+
+[Retour au README des outils](../README.md) · [Référence des scripts](scripts.md) · [Version TXT](workflow.txt)
+
+Vérifié le 15 octobre 2026. Les exemples décrivent les scripts actuels ; les valeurs propres au projet viennent du `.env` des outils.
+
+Les commandes du serveur et de la console sont définies par `WT_SERVER_COMMANDS` et `WT_CONSOLE_COMMAND`, sous forme de listes d’arguments JSON. Voir la [référence de configuration](../env/README.md) avant d’adapter le profil à un autre projet.
+
+Les définitions Docker complètes viennent de `WT_COMPOSE_CONFIG` et `WT_CI_COMPOSE_CONFIG`. Leurs images, services, volumes et réseaux se règlent dans le même .env. Voir la [configuration Docker](../env/README.md#definition-docker-complete-dans-le-env).
+
+## 1. Préparer le terminal
+
+Depuis le dépôt principal, charge les fonctions Bash :
+
+```bash
+source ./doc/tools/worktree_shell.sh
+```
+
+Recharge cette ligne dans un terminal déjà ouvert après une modification des fonctions. Les scripts exécutables prennent leurs modifications en compte au lancement suivant. Le `.env` est lu comme des données par les outils : ne le charge pas avec `source`.
+
+Le dossier des outils doit être dans le `PATH` pour utiliser les formes courtes ci-dessous. Sinon, appelle les scripts par leur chemin complet. Exécute les commandes depuis le dépôt principal ou un worktree de tâche, jamais depuis le dépôt Git imbriqué du dossier des outils.
+
+Avant de changer de tâche, vérifie le contexte :
+
+```bash
+worktree_status.sh
+```
+
+## 2. Actualiser la base avant une nouvelle tâche
+
+Dans le dépôt principal, sur la branche principale configurée et avec un état adapté :
+
+```bash
+pull.sh
+```
+
+Cette commande exécute `git pull --ff-only` dans le dossier courant. Elle ne rejoint pas automatiquement le dépôt principal. Un historique divergent provoque un refus.
+
+Cette étape est utile avant de créer une branche : une création part de la branche principale locale sans fetch automatique. L’ouverture d’une tâche existante effectue normalement sa propre actualisation, sauf option ou choix contraire.
+
+## 3. Rejoindre une tâche
+
+La commande habituelle est :
+
+```bash
+worktree_reach.sh 1234_ma_tache
+```
+
+Son comportement dépend de l’état existant :
+
+- Branche absente : créer la branche et le worktree depuis la base locale.
+- Branche connue sans worktree : rattacher un nouveau worktree à cette branche.
+- Worktree fermé : préparer et ouvrir son atelier, avec actualisation habituelle.
+- Atelier déjà vivant : afficher son onglet d’agent, sans actualisation Git ni activation Docker.
+
+Le terminal de lancement garde son dossier. La fenêtre de tâche utilise son worktree pour l’agent, les services, le Bash et les notes selon les rôles configurés.
+
+Pour ouvrir sans actualisation Git :
+
+```bash
+worktree_reach.sh 1234_ma_tache --no-update
+```
+
+Pour un ticket :
+
+```bash
+worktree_reach.sh t_2345_mon_ticket
+```
+
+Les commandes explicites restent disponibles : `worktree_new.sh` exige une nouvelle branche ; `worktree_open.sh` exige une branche déjà connue. Une préparation sans fenêtre ni Docker utilise `--prepare-only`.
+
+## 4. Traiter les modifications lors d’une ouverture
+
+Si une tâche existante contient du travail local, l’ouverture avec actualisation propose un choix :
+
+- Fusionner en conservant le travail : sauvegarde temporaire par stash, actualisation et fusion, puis réapplication avec l’index.
+- Sauvegarder en patch puis nettoyer : créer une archive vérifiée dans WT_MAIN_ROOT/doc, nettoyer les fichiers sauvegardés et ouvrir sans fusion.
+- Éliminer les changements : choix destructif explicite, puis ouverture sans fusion.
+- Annuler : choix par défaut lorsque la réponse est vide.
+
+`--no-update` évite cette actualisation et ce menu. Un conflit, une opération Git en cours ou une collision de fichiers avec un autre worktree peut interrompre le traitement.
+
+En cas de conflit de réapplication du stash, le script peut proposer `git mergetool` dans la tâche. Si la résolution n’est pas terminée, l’ouverture reste interrompue et le travail est conservé. Ne relance pas une restauration ou une fusion à l’aveugle ; examine l’état Git affiché.
+
+## 5. Circuler entre les terminaux
+
+Pour afficher une tâche déjà ouverte :
+
+```bash
+worktree_reach.sh 1234_ma_tache
+```
+
+Pour revenir à l’affichage du terminal principal :
+
+```bash
+worktree_reach.sh
+```
+
+`worktree_switch.sh` offre aussi l’affichage direct d’un terminal existant, avec ou sans nom de tâche. Il ne crée pas de fenêtre. Si le terminal principal n’est pas retrouvé, ouvre un terminal dans le dépôt principal. Un atelier partiellement ouvert doit être fermé avant d’être rouvert.
+
+## 6. Faire une modification rapide sans atelier complet
+
+Depuis un terminal ayant chargé `worktree_shell.sh` :
+
+```bash
+change_branch.sh 1234_ma_tache
+```
+
+La tâche doit déjà avoir un worktree. La commande refuse les changements locaux et l’activité détectée dans la cible, vérifie le dépôt principal propre sur sa branche principale, y effectue le pull en avance rapide, fait `cd` vers le worktree puis y fusionne la base.
+
+Elle ne démarre pas de serveur. Un refus avant déplacement conserve ton dossier ; un conflit de fusion te laisse dans la tâche pour le résoudre. Après succès, tu restes dans la tâche pour travailler. `cd -` revient au dossier précédent.
+
+Le `cd` nécessite la fonction Bash ; l’exécutable seul demande de recharger le fichier de fonctions. Les contrôles sont ponctuels : ne démarre pas simultanément un autre travail dans ce même dossier.
+
+## 7. Sauvegarder le travail
+
+Depuis le Bash du worktree :
+
+```bash
+patch.sh make
+```
+
+Depuis le dépôt principal, pour une tâche existante :
+
+```bash
+patch.sh 1234_ma_tache
+```
+
+Les deux formes écrivent dans **WT_MAIN_ROOT/doc**. L’archive contient le commit de base, la branche, l’index, les modifications suivies, suppressions, binaires et fichiers nouveaux non ignorés. Les fichiers personnels ignorés ne sont pas inclus automatiquement.
+
+La création vérifie les empreintes et refuse un changement intervenu pendant la lecture. Elle ne nettoie pas le worktree. Une sauvegarde ne remplace pas un commit.
+
+Pour lister les sauvegardes, y compris quand la tâche n’a plus de worktree :
+
+```bash
+is_any_patch.sh 1234_ma_tache
+is_any_patch.sh 1234_ma_tache done
+```
+
+Sans nom de tâche, `is_any_patch.sh` et `patch.sh list` utilisent la tâche courante. `is_any_patch.sh done` conserve la forme courte pour les sauvegardes déjà traitées.
+
+## 8. Restaurer une sauvegarde
+
+Depuis le worktree de la tâche :
+
+```bash
+patch.sh
+```
+
+La commande affiche les sauvegardes en attente et leur date, puis demande confirmation. Sans terminal interactif, elle les affiche sans restauration. Si aucun patch n’est disponible, elle le signale.
+
+Pour choisir explicitement une archive :
+
+```bash
+patch.sh restore doc/NOM_DU_PATCH.wtpatch.zip
+```
+
+Ce chemin est résolu vers WT_MAIN_ROOT/doc, même depuis un worktree. Une archive placée ailleurs est refusée. `--yes` supprime la confirmation uniquement pour une restauration explicitement désignée.
+
+La restauration exige notamment la même branche et le même commit de base, une archive intacte et aucune modification locale incompatible. Les fichiers non suivis restants après un `git checkout .` sont acceptés seulement s’ils sont strictement identiques à la sauvegarde. Tout fichier différent ou étranger bloque la restauration. Ne supprime pas ces fichiers pour contourner un refus.
+
+Après vérification du résultat, l’archive est renommée avec le suffixe `.done` dans le dossier central. Aucun merge automatique n’est effectué. Si le travail est déjà présent, il n’est pas réappliqué.
+
+## 9. Vérifier le travail et les services
+
+Pour produire le rapport de la tâche :
+
+```bash
+desc_git.sh 1234_ma_tache
+```
+
+Le rapport est écrit dans le dossier de documentation du worktree. Il commence par les fichiers modifiés, puis présente les commits dont le sujet commence par le nom exact de la tâche et leurs diffs. Les commits déjà intégrés dans la base restent inclus.
+
+Pour vérifier les collisions locales et lancer les tests configurés :
+
+```bash
+worktree_check_conflicts.sh
+worktree_test.sh file chemin/du_test --no-db-setup
+```
+
+Le scope et le chemin de test dépendent du runner configuré. `--db-setup` est un choix explicite de réinitialisation de la base de test. Les exécutions CI sont sérialisées par un verrou commun.
+
+Si un service de la tâche s’est arrêté :
+
+```bash
+relance_serveur.sh
+relance_console.sh
+```
+
+Ces commandes acceptent aussi un nom de tâche depuis le dépôt principal. `worktree_docker.sh status` affiche les états et `worktree_docker.sh logs` suit les journaux du service courant. Pour détacher une connexion Docker sans arrêter le service : Ctrl-P puis Ctrl-Q.
+
+## 10. Préparer un commit puis pousser
+
+Depuis le worktree de la tâche, prépare explicitement les fichiers utiles et relis l’index avec tes commandes Git habituelles. Exécute ensuite, quand tu souhaites réellement ces actions :
+
+```bash
+commit.sh 'fix: corriger le comportement'
+push.sh
+```
+
+Le script de commit ajoute automatiquement le nom de tâche au message. Ne le fournis pas toi-même. Les fichiers personnels sont refusés ; certains messages spéciaux configurés peuvent préparer des fichiers précis avant le commit.
+
+Le push vise la branche courante de tâche et une destination configurée. Il ne pousse pas directement la branche principale. Une destination de développement peut être indiquée si elle existe dans le profil :
+
+```bash
+push.sh development
+```
+
+`merge_to_master.sh` et `merge_to_dev.sh` sont des audits d’intégration. Ils ne réalisent aucune fusion ni aucun déploiement ; leur fetch par défaut actualise les références. `--no-fetch` utilise les références déjà disponibles.
+
+## 11. Fermer puis reprendre
+
+Enregistre les buffers de l’éditeur et termine les commandes que tu veux conserver. Depuis le worktree :
+
+```bash
+worktree_close.sh
+```
+
+Ou depuis le dépôt principal :
+
+```bash
+worktree_close.sh 1234_ma_tache
+```
+
+La fermeture vérifie les activités, peut proposer l’arrêt coopératif de commandes, arrête les services de la tâche et crée une sauvegarde vérifiée dans WT_MAIN_ROOT/doc s’il reste du travail. Un refus ou un blocage laisse la fermeture suspendue ; aucun arrêt forcé n’est effectué.
+
+Le worktree, la branche, les documents et le journal central restent disponibles. La fonction Bash revient au dépôt principal si le shell appelant est conservé ; un terminal supplémentaire reconnu comme appartenant à l’atelier peut être fermé.
+
+Pour reprendre :
+
+```bash
+worktree_reach.sh 1234_ma_tache
+```
+
+## 12. Retirer un worktree terminé
+
+Cette action est distincte de la fermeture. Depuis le dépôt principal et uniquement lorsque tu as décidé de retirer le dossier :
+
+```bash
+worktree_remove.sh 1234_ma_tache
+```
+
+Le script exige un worktree inactif et un état Git compatible, archive les fichiers locaux et ignorés avec vérification, puis retire le dossier. Les permissions peuvent nécessiter une opération privilégiée ciblée. La branche et le journal central sont conservés ; aucune branche distante n’est supprimée.
+
+Les patchs restent dans WT_MAIN_ROOT/doc. L’archive complète du worktree est une autre sauvegarde, distincte des patchs et située dans le dossier de sauvegardes du projet.

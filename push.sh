@@ -1,10 +1,5 @@
-#!/bin/bash
-
-branch=$(git rev-parse --abbrev-ref HEAD)
-if [[ $1 == "develop" ]]
-then
-  knock -d 500 -v dev-b.example.invalid 41822 5489 18963
-  git push --force $1 $branch
-else
-  git push origin $branch
-fi
+#!/usr/bin/env bash
+set -euo pipefail
+# Le contexte vient du répertoire appelant, pas du dépôt imbriqué des outils.
+tools_dir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
+exec python3 "$tools_dir/worktree_tools.py" push "$@"

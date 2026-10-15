@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Référence des scripts .sh actuels</title><style>
+:root { color-scheme: light dark; }
+html { background: #fff; color: #24292f; }
+body { max-width: 1060px; margin: auto; padding: 24px; font: 17px/1.65 system-ui, sans-serif; overflow-wrap: anywhere; }
+a, a:visited { color: #075bb5; text-underline-offset: .18em; }
+a:focus-visible { outline: 3px solid #a75a00; outline-offset: 4px; }
+h1,h2,h3 { line-height: 1.3; }
+pre { padding: 16px; overflow: auto; background: #f3f5f7; border: 1px solid #d0d7de; border-radius: 6px; }
+code { font-family: ui-monospace, monospace; font-size: .88em; }
+pre code { white-space: pre; overflow-wrap: normal; }
+blockquote { border-left: 4px solid #d0d7de; margin-left: 0; padding-left: 20px; }
+nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
+@media (prefers-color-scheme: dark) {
+ html { color: #e6edf3; background: #0d1117; }
+ a,a:visited { color: #79c0ff; }
+ pre { background: #161b22; }
+ pre,blockquote,nav { border-color: #3d444d; }
+}
+@media (max-width: 600px) { body { padding: 16px; font-size: 16px; } }
+</style></head><body><nav><a href="scripts.md">Version Markdown</a></nav><main>
+<h1 id="reference-des-scripts-sh-actuels">Référence des scripts .sh actuels</h1>
+<p><a href="../README.html">Retour au README des outils</a> · <a href="workflow.html">Workflow quotidien</a> · <a href="scripts.txt">Version TXT</a></p>
+<p>Inventaire du 15 octobre 2026 : <strong>30 fichiers `.sh`</strong>, dont 28 commandes et 2 fichiers de support Bash. La liste correspond au dossier parent, sans scripts déplacés ni anciennes copies. Les arguments ont été recoupés avec les aides actuelles et les modules appelés.</p>
+<p>Les exemples supposent que le dossier des outils est dans le <code>PATH</code>. <code>&lt;tâche&gt;</code> représente un nom tel que <code>1234_ma_tache</code> ; les tickets suivent la forme <code>t_2345_mon_ticket</code>. Ne recopie pas les chevrons de la syntaxe dans une commande réelle.</p>
+<p>La racine principale, les conventions Git et les services viennent du <code>.env</code>. Les noms historiques contenant <code>master</code> restent des noms de commandes ; ils utilisent la branche principale configurée. Les patchs, archives et fichiers <code>.done</code> restent exclusivement dans WT_MAIN_ROOT/doc.</p>
+<h2 id="rejoindre-et-gerer-les-ateliers">Rejoindre et gérer les ateliers</h2>
+<h3 id="worktree_reachsh">worktree_reach.sh</h3>
+<pre><code>worktree_reach.sh [tâche] [--no-update] [--prepare-only] [--mode mode]
+</code></pre>
+<p>Commande habituelle pour rejoindre une tâche. Crée la branche si elle manque, rattache un worktree si nécessaire, ouvre un atelier fermé ou affiche un atelier vivant. Une création part de la base locale ; une ouverture existante suit l’actualisation habituelle, sauf option ou choix contraire. Un atelier vivant est seulement affiché, sans actualisation Git ni activation Docker.</p>
+<p>Sans tâche, affiche le terminal principal existant. Le dossier du terminal appelant est conservé. Une fenêtre ou un onglet manquant provoque une erreur ; l’affichage d’un atelier partiellement ouvert ne crée pas un deuxième atelier.</p>
+<pre><code>worktree_reach.sh 1234_ma_tache
+worktree_reach.sh 1234_ma_tache --no-update
+worktree_reach.sh
+</code></pre>
+<h3 id="worktree_newsh">worktree_new.sh</h3>
+<pre><code>worktree_new.sh &lt;tâche&gt; [--prepare-only] [--mode mode]
+</code></pre>
+<p>Crée explicitement une nouvelle branche et son worktree depuis la branche principale locale, puis prépare l’atelier. Refuse une branche déjà connue ou une destination occupée. Ne fait pas de fetch. <code>--prepare-only</code> prépare sans fenêtre ni activation Docker et conserve le dossier appelant.</p>
+<h3 id="worktree_opensh">worktree_open.sh</h3>
+<pre><code>worktree_open.sh &lt;tâche&gt; [--no-update] [--prepare-only] [--mode mode]
+</code></pre>
+<p>Ouvre une branche existante, locale ou déjà connue dans les références distantes. Réutilise son worktree ou le rattache si nécessaire. Sans <code>--no-update</code>, actualise la base distante, met à jour la base locale en avance rapide et fusionne dans la tâche lorsque le choix effectué le prévoit.</p>
+<p>Un travail local déclenche le menu de conservation, sauvegarde/nettoyage, élimination ou annulation. Un conflit non résolu ou un échec de préparation empêche l’ouverture. <code>--prepare-only</code> garde les contrôles et l’éventuelle actualisation, sans fenêtre ni Docker.</p>
+<h3 id="worktree_open_currentsh">worktree_open_current.sh</h3>
+<pre><code>worktree_open_current.sh
+</code></pre>
+<p>Ouvre l’atelier du worktree de tâche courant. Exige d’être dans ce worktree. N’effectue pas l’actualisation Git de <code>worktree_open.sh</code> ; l’ouverture peut proposer les patchs en attente puis activer les services.</p>
+<h3 id="worktree_switchsh">worktree_switch.sh</h3>
+<pre><code>worktree_switch.sh [tâche]
+</code></pre>
+<p>Affiche le terminal principal sans argument, ou l’onglet d’agent d’une tâche déjà ouverte. Utilise la session GNOME existante, sans créer de fenêtre, modifier Git ou activer Docker.</p>
+<p>Pour le principal, recherche un shell dont le dossier physique est la racine principale et préfère le plus ancien. Pour une tâche, nécessite un superviseur d’agent vivant.</p>
+<h3 id="worktree_statussh">worktree_status.sh</h3>
+<pre><code>worktree_status.sh
+</code></pre>
+<p>Affiche les worktrees enregistrés, leurs branches et leurs changements Git suivis ou non suivis. Lecture seule ; ne lance pas de service et ne nettoie rien. Pour les états Docker, utilise <code>worktree_docker.sh status</code>.</p>
+<h3 id="worktree_closesh">worktree_close.sh</h3>
+<pre><code>worktree_close.sh [tâche]
+</code></pre>
+<p>Ferme l’atelier nommé, ou celui du worktree courant. Vérifie les buffers et commandes actives, propose si nécessaire l’arrêt coopératif de commandes, arrête les services ciblés puis sauvegarde les changements en patch dans WT_MAIN_ROOT/doc avant la fermeture finale.</p>
+<p>Un refus, une commande non arrêtée ou un échec de sauvegarde bloque la suite. Le worktree, sa branche et son journal central sont conservés. La fonction Bash ramène au principal si le shell reste ouvert ; un terminal supplémentaire de l’atelier peut être fermé.</p>
+<h3 id="worktree_removesh">worktree_remove.sh</h3>
+<pre><code>worktree_remove.sh &lt;tâche&gt;
+</code></pre>
+<p>À lancer depuis le dépôt principal, hors du dossier à retirer, après décision explicite de suppression. Vérifie l’identité du worktree, l’absence d’activité et les changements Git, puis crée et relit une archive des fichiers locaux, y compris ignorés. Retire ensuite le worktree et son dossier.</p>
+<p>Conserve la branche et le journal central. Ne supprime aucune branche distante. Refuse une cible ambiguë, verrouillée, active ou modifiée. Un retrait partiel ou un problème de permissions peut nécessiter une intervention privilégiée ciblée, après sauvegarde vérifiée.</p>
+<h3 id="change_branchsh">change_branch.sh</h3>
+<pre><code>change_branch.sh &lt;tâche&gt;
+</code></pre>
+<p>Fonction Bash à charger avec <code>worktree_shell.sh</code>. Vise une branche déjà rattachée à un worktree, sans créer de branche ni de worktree.</p>
+<p>Contrôle la propreté du départ, du principal et de la cible ; refuse l’activité détectée dans la cible ; actualise la branche principale par pull en avance rapide ; déplace le terminal dans la tâche puis y fusionne la base. Le principal doit déjà être sur sa branche principale. Aucun atelier ni serveur n’est lancé.</p>
+<p>Un refus préalable garde le dossier initial. Un conflit laisse le terminal dans la tâche. L’exécutable seul indique comment charger la fonction ; <code>--help</code> reste disponible directement.</p>
+<h2 id="sauvegardes-et-rapports">Sauvegardes et rapports</h2>
+<h3 id="patchsh">patch.sh</h3>
+<pre><code>patch.sh
+patch.sh make [--include chemin]
+patch.sh &lt;tâche&gt; [--include chemin]
+patch.sh list
+patch.sh restore doc/&lt;patch&gt; [--yes]
+</code></pre>
+<p>Sans argument, propose les sauvegardes en attente de la tâche courante et demande confirmation avant restauration. Sans terminal interactif, affiche les propositions sans les appliquer. L’absence de sauvegarde est signalée.</p>
+<p><code>make</code> sauvegarde le worktree courant. Un nom de tâche sauvegarde son worktree existant depuis un autre dossier du projet. Les archives sont uniques, vérifiées et stockées dans WT_MAIN_ROOT/doc. Elles comprennent l’index, les changements suivis, suppressions, binaires et fichiers nouveaux non ignorés. <code>--include</code> ajoute explicitement un chemin local normalement exclu ; à réserver aux fichiers que tu souhaites réellement sauvegarder.</p>
+<p><code>list</code> affiche les sauvegardes en attente de la tâche courante. <code>restore</code> vérifie l’archive, la branche, le commit de base, les collisions et l’état local. Les fichiers non suivis déjà présents sont compatibles seulement s’ils correspondent strictement au manifeste. Un autre changement bloque la restauration. La vérification est répétée sous verrou.</p>
+<p>Après restauration vérifiée, le fichier est renommé <code>.done</code> dans le dossier central. <code>doc/&lt;patch&gt;</code> est résolu vers ce dossier, même depuis un worktree ; un chemin absolu extérieur est refusé. Aucun merge automatique. <code>--yes</code> exige une archive désignée avec <code>restore</code> ; il ne s’applique pas à la forme sans argument.</p>
+<pre><code>patch.sh make
+patch.sh
+patch.sh restore doc/NOM_DU_PATCH.wtpatch.zip
+</code></pre>
+<h3 id="is_any_patchsh">is_any_patch.sh</h3>
+<pre><code>is_any_patch.sh [tâche] [done]
+</code></pre>
+<p>Liste les sauvegardes de la tâche nommée dans WT_MAIN_ROOT/doc. Aucune branche ni aucun worktree n’est nécessaire pour une tâche explicite. Sans tâche, utilise le worktree courant. Sans <code>done</code>, liste les sauvegardes en attente ; avec <code>done</code>, liste celles déjà traitées. La forme historique <code>is_any_patch.sh done</code> reste valide.</p>
+<p>Aucun patch appliqué, déplacé ou renommé. Une liste vide signifie qu’aucune sauvegarde de cet état n’a été trouvée.</p>
+<pre><code>is_any_patch.sh 1234_ma_tache
+is_any_patch.sh 1234_ma_tache done
+is_any_patch.sh done
+</code></pre>
+<h3 id="desc_gitsh">desc_git.sh</h3>
+<pre><code>desc_git.sh [tâche]
+</code></pre>
+<p>Décrit la tâche nommée, dont le worktree doit exister ; sans argument, utilise le worktree courant. Écrit <code>&lt;tâche&gt;_git.txt</code> dans son dossier de documentation configuré.</p>
+<p>Le rapport commence par les fichiers modifiés, triés et dédoublonnés, puis détaille les commits accessibles depuis HEAD dont le sujet commence par le nom exact de tâche suivi d’un espace, de deux-points ou de la fin du sujet. Il inclut les commits déjà intégrés dans la branche principale, les suppressions et les anciens/nouveaux chemins de renommage. Les fusions utilisent les différences combinées pour limiter les fichiers importés.</p>
+<p>Ne remplace pas les notes de la tâche. Ne décrit pas les modifications locales non committées. Aucun checkout, fetch ou merge.</p>
+<h3 id="worktree_check_conflictssh">worktree_check_conflicts.sh</h3>
+<pre><code>worktree_check_conflicts.sh [chemins...] [--against référence]
+</code></pre>
+<p>Cherche les modifications des mêmes chemins dans les autres worktrees, en tenant compte de l’index, des changements non indexés et des fichiers non suivis. Sans chemin, examine les fichiers actuellement changés.</p>
+<p><code>--against</code> ajoute une simulation Git de fusion avec la référence indiquée, sans appliquer le résultat aux fichiers ni changer de branche. Peut créer des objets internes de simulation dans Git. Un code de sortie non nul peut signaler une collision ou un conflit simulé. L’absence de collision locale ne garantit pas une future fusion sans conflit.</p>
+<h2 id="services-et-tests">Services et tests</h2>
+<h3 id="worktree_lance_mastersh">worktree_lance_master.sh</h3>
+<pre><code>worktree_lance_master.sh [--mode mode]
+</code></pre>
+<p>Depuis le terminal GNOME du dépôt principal sur la branche principale configurée, active ses services et ajoute les onglets de console et de serveur dans cette même fenêtre. Le dossier appelant reste disponible. Les libellés et services viennent du profil.</p>
+<p>Sans mode explicite, conserve le mode existant, sinon utilise le mode prévu par l’implémentation. Chaque appel ouvre de nouveaux onglets. Ctrl-P puis Ctrl-Q détache un service sans l’arrêter.</p>
+<h3 id="worktree_dockersh">worktree_docker.sh</h3>
+<pre><code>worktree_docker.sh &lt;action&gt; [--worktree chemin] [--mode mode] [--infrastructure]
+</code></pre>
+<p>Actions actuelles :</p>
+<ul>
+<li><code>status</code> : afficher les états et montages des runtimes ; l’URL n’est affichée que pour un runtime actif.</li>
+<li><code>activate</code> : configurer et démarrer le runtime ciblé, avec ses montages, ports et volumes propres.</li>
+<li><code>stop</code> : arrêter ses services ; <code>--infrastructure</code> demande aussi l’arrêt des services communs et est refusé si un autre worktree les utilise.</li>
+<li><code>console</code> : attacher la console de la cible.</li>
+<li><code>attach</code> : attacher le serveur du mode actif.</li>
+<li><code>shell</code> : ouvrir un shell applicatif dans un conteneur temporaire du runtime.</li>
+<li><code>logs</code> : suivre les logs du serveur.</li>
+<li><code>restart</code> : redémarrer le service serveur ciblé.</li>
+</ul>
+<p>Sans <code>--worktree</code>, utilise le contexte courant. Les actions interactives exigent un runtime actif. L’infrastructure commune et les ports sont pilotés par le <code>.env</code> ; changer les paramètres d’identité de conteneurs existants demande une migration comprise.</p>
+<pre><code>worktree_docker.sh status
+worktree_docker.sh activate --mode http
+worktree_docker.sh logs
+</code></pre>
+<h3 id="relance_serveursh">relance_serveur.sh</h3>
+<pre><code>relance_serveur.sh [tâche] [--mode mode]
+</code></pre>
+<p>Remet en service le serveur courant ou celui d’une tâche existante, après vérification de l’infrastructure. Réutilise l’onglet géré lorsqu’il est disponible ; sinon, attache le service dans le terminal appelant. Ne redémarre pas les autres ateliers.</p>
+<h3 id="relance_consolesh">relance_console.sh</h3>
+<pre><code>relance_console.sh [tâche] [--mode mode]
+</code></pre>
+<p>Même ciblage que la relance serveur, pour le rôle console. Réutilise l’onglet géré ou attache dans le terminal appelant. La console et son service sont ceux configurés pour le projet.</p>
+<h3 id="relance_dockersh">relance_docker.sh</h3>
+<pre><code>relance_docker.sh [tâche] [--mode mode]
+</code></pre>
+<p>Dans le code actuel, suit le même chemin de relance que <code>relance_serveur.sh</code>. Ce nom ne signifie pas un redémarrage du démon Docker ni un arrêt global des conteneurs.</p>
+<h3 id="docker_stop_allsh">docker_stop_all.sh</h3>
+<pre><code>docker_stop_all.sh [--infrastructure]
+</code></pre>
+<p>Le périmètre dépend du contexte. Depuis une tâche, arrête son runtime ; l’arrêt de l’infrastructure commune reste soumis aux protections des autres worktrees.</p>
+<p>Sur la branche principale, arrête les conteneurs reconnus du projet principal, de la CI et des runtimes worktree, puis marque leurs états arrêtés. C’est une action globale sur le projet : les services des autres tâches sont concernés. Ne ferme pas leurs fenêtres ni leurs fichiers.</p>
+<h3 id="worktree_testsh">worktree_test.sh</h3>
+<pre><code>worktree_test.sh &lt;arguments du runner&gt;
+</code></pre>
+<p>Exige un worktree de tâche. Lance la commande CI configurée avec le code de cette tâche, ses montages et un cache séparé. Les exécutions sont sérialisées par un verrou commun.</p>
+<p>L’implémentation actuelle accepte <code>--db-setup</code> et <code>--no-db-setup</code>, ajoute la seconde option si aucune n’est fournie, refuse leur combinaison et contrôle l’empreinte du schéma de test. <code>--db-setup</code> peut réinitialiser la base de test : utilise-le explicitement pour cette intention. Les scopes et chemins valides dépendent du runner configuré.</p>
+<pre><code>worktree_test.sh file chemin/du_test --no-db-setup
+</code></pre>
+<h2 id="git-et-sessions">Git et sessions</h2>
+<h3 id="pullsh">pull.sh</h3>
+<pre><code>pull.sh
+</code></pre>
+<p>Exécute uniquement <code>git pull --ff-only</code> dans le dossier courant. Ne sélectionne ni branche ni dépôt à ta place. Refuse les arguments supplémentaires ; <code>--help</code> affiche l’usage.</p>
+<h3 id="commitsh">commit.sh</h3>
+<pre><code>commit.sh &lt;message&gt; [--no-verify]
+</code></pre>
+<p>À lancer dans le worktree de tâche après préparation explicite de l’index. Vérifie les conflits, les fichiers personnels et les erreurs de diff, puis crée le commit avec le préfixe automatique <code>&lt;nom de tâche&gt; :</code>.</p>
+<p>Les messages ordinaires suivent Conventional Commits, par exemple <code>fix: corriger le comportement</code>. Ne fournis pas le nom de tâche. Les messages spéciaux définis dans <code>WT_SPECIAL_COMMITS</code> peuvent ajouter leurs fichiers configurés avant le commit ; les protections des fichiers personnels restent vérifiées ensuite. <code>--no-verify</code> désactive les hooks Git uniquement sur choix explicite.</p>
+<pre><code>commit.sh &#x27;fix: corriger le comportement&#x27;
+</code></pre>
+<h3 id="pushsh">push.sh</h3>
+<pre><code>push.sh [destination] [--force-with-lease]
+</code></pre>
+<p>Pousse la branche du worktree de tâche vers la destination configurée, par défaut le remote principal. Ne pousse pas la branche principale. Une destination peut prévoir une commande préalable, définie dans le <code>.env</code>.</p>
+<p><code>--force-with-lease</code> est limité aux remotes explicitement autorisés ; le SHA distant attendu est relu avant le push. Le script ne fait pas de commit ni de fusion.</p>
+<h3 id="merge_to_mastersh">merge_to_master.sh</h3>
+<pre><code>merge_to_master.sh [jours] [auteur] [cible] [--fetch | --no-fetch]
+</code></pre>
+<p>Audit des commits de l’auteur durant la période, sept jours par défaut, et de leur intégration dans la cible principale. Sans auteur, utilise l’e-mail Git configuré. Signale aussi les commits des branches locales absents des références distantes connues.</p>
+<p>Actualise les références par fetch et prune par défaut. <code>--no-fetch</code> évite cet accès et utilise les références locales. Malgré son nom, ne réalise aucune fusion, aucun push ni déploiement.</p>
+<h3 id="merge_to_devsh">merge_to_dev.sh</h3>
+<pre><code>merge_to_dev.sh [jours] [auteur] [cible] [--fetch | --no-fetch]
+</code></pre>
+<p>Même audit que <code>merge_to_master.sh</code>, avec une cible de développement explicite ou choisie parmi les références définies dans <code>WT_AUDIT_TARGETS</code>. Si aucune cible n’est trouvée, demande une référence explicite. Ne fusionne rien.</p>
+<h3 id="relance_codexsh">relance_codex.sh</h3>
+<pre><code>relance_codex.sh [--new-session] [-- arguments de l’agent]
+</code></pre>
+<p>Prépare le contexte personnel du worktree courant et reprend la session d’agent associée quand un lien central valide existe. <code>--new-session</code> démarre une nouvelle session. Les journaux restent dans le dossier central configuré ; les transcriptions natives ne sont pas réécrites.</p>
+<p>Le dossier de travail est fixé au worktree : les options d’agent qui changeraient ce dossier sont refusées. Une reprise ambiguë ou un lien cassé demande une vérification explicite.</p>
+<h3 id="vim_sessionsh">vim_session.sh</h3>
+<pre><code>vim_session.sh [doc]
+</code></pre>
+<p>Sans argument, ouvre la session d’éditeur de développement existante. Avec <code>doc</code>, ouvre la session de documentation ; à défaut de session mais avec des notes, ouvre directement celles de la tâche. Si rien n’est disponible, le signale.</p>
+<p>Cette ouverture autonome n’est pas un onglet supervisé par la fermeture de l’atelier. Dans un atelier, l’onglet documentation utilise les mêmes sessions et les contrôles de fermeture des buffers ; l’onglet Bash reste un Bash.</p>
+<h3 id="put_branch_in_ideash">put_branch_in_idea.sh</h3>
+<pre><code>put_branch_in_idea.sh
+</code></pre>
+<p>Écrit le nom de la branche courante dans le fichier marqueur configuré, <code>.idea</code> par défaut. Refuse d’écraser un répertoire IDE existant. Ne change pas de branche et ne configure pas l’IDE.</p>
+<h2 id="fichiers-de-support-bash">Fichiers de support Bash</h2>
+<h3 id="worktree_shellsh">worktree_shell.sh</h3>
+<pre><code>source /chemin/vers/tools/worktree_shell.sh
+</code></pre>
+<p>Définit les fonctions <code>worktree_reach.sh</code>, <code>worktree_open.sh</code>, <code>worktree_new.sh</code>, <code>worktree_close.sh</code> et <code>change_branch.sh</code> dans le terminal appelant.</p>
+<p>Les fonctions d’ouverture conservent le dossier de départ. <code>change_branch.sh</code> permet le vrai déplacement du shell dans la tâche. La fonction de fermeture revient au principal lorsque le shell est conservé. Recharge ce fichier après une modification de ces fonctions ; ce n’est pas une commande à exécuter pour ouvrir un atelier.</p>
+<h3 id="worktree_bashrcsh">worktree_bashrc.sh</h3>
+<p>Fichier chargé automatiquement par les shells des onglets gérés. Charge la configuration Bash personnelle et installe le mécanisme de fermeture coopérative. Un shell contenant des jobs actifs ou suspendus ne se ferme pas automatiquement.</p>
+<p>Lit les variables de fermeture <code>WT_*</code> et, si nécessaire, les préfixes historiques autorisés dans la configuration. Ne le lance pas directement pour rejoindre une tâche ; utilise les commandes d’ouverture ou le fichier de fonctions.</p>
+</main></body></html>

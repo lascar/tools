@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Le worktree vient du dossier courant, même depuis un sous-dossier.
+tools_dir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
+exec python3 "$tools_dir/worktree_tools.py" worktree_port "$@"

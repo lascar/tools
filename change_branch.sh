@@ -1,28 +1,12 @@
-#!/bin/bash
-
-gitdiff=`git diff`
-if [[ $gitdiff ]]
-then
-  echo "git diff not empty"
-  exit 1
+#!/usr/bin/env bash
+# Un exécutable ne peut pas déplacer le shell appelant : la fonction est requise.
+tools_dir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
+if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
+  echo 'Usage : change_branch.sh <numéro_nom | t_numéro_nom>'
+  echo 'Contrôles → actualisation de la branche de référence → cd → fusion.'
+  printf 'Charge la fonction : source %q/worktree_shell.sh\n' "$tools_dir"
+  exit 0
 fi
-read -r typo num reste <<< $(echo $1|perl -ane '/(?:#)?(t_)?([0-9]+)(_.*)/ and print"$1 $2 $3\n"')
-echo "typo=$typo num=$num reste=$reste"
-if [[ $num ]]
-then
-  if [[ $typo == "t_" ]]
-  then
-    branch="tickets/$1"
-  else
-    branch="feature/$1"
-  fi
-  echo "branch=$branch"
-  git checkout master
-  git pull
-  git checkout $branch
-  git merge master
-  docker stop project-web-1
-  echo "on branch $branch"
-else
-  echo "on master?"
-fi
+echo 'Recharge les fonctions pour permettre le cd dans ton terminal :' >&2
+printf 'source %q/worktree_shell.sh\n' "$tools_dir" >&2
+exit 2

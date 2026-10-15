@@ -1,3 +1,5 @@
-#!/bin/bash
-
-git rev-parse --abbrev-ref HEAD > .idea
+#!/usr/bin/env bash
+set -euo pipefail
+# Le contexte vient du répertoire appelant, pas du dépôt imbriqué des outils.
+tools_dir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
+exec python3 "$tools_dir/worktree_tools.py" put_branch_in_idea "$@"

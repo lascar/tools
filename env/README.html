@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Configuration des outils — référence du .env</title><style>
+:root { color-scheme: light dark; }
+html { background: #fff; color: #24292f; }
+body { max-width: 1060px; margin: auto; padding: 24px; font: 17px/1.65 system-ui, sans-serif; overflow-wrap: anywhere; }
+a, a:visited { color: #075bb5; text-underline-offset: .18em; }
+a:focus-visible { outline: 3px solid #a75a00; outline-offset: 4px; }
+h1,h2,h3 { line-height: 1.3; }
+pre { padding: 16px; overflow: auto; background: #f3f5f7; border: 1px solid #d0d7de; border-radius: 6px; }
+code { font-family: ui-monospace, monospace; font-size: .88em; }
+pre code { white-space: pre; overflow-wrap: normal; }
+blockquote { border-left: 4px solid #d0d7de; margin-left: 0; padding-left: 20px; }
+nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
+@media (prefers-color-scheme: dark) {
+ html { color: #e6edf3; background: #0d1117; }
+ a,a:visited { color: #79c0ff; }
+ pre { background: #161b22; }
+ pre,blockquote,nav { border-color: #3d444d; }
+}
+@media (max-width: 600px) { body { padding: 16px; font-size: 16px; } }
+</style></head><body><nav><a href="README.md">Version Markdown</a></nav><main>
+<h1 id="configuration-des-outils-reference-du-env">Configuration des outils — référence du .env</h1>
+<p><a href="../README.html">Retour au README des outils</a> · <a href="../doc/workflow.html">Workflow</a> · <a href="../doc/scripts.html">Scripts</a> · <a href="README.txt">Version TXT</a></p>
+<h2 id="lire-et-modifier-la-configuration">Lire et modifier la configuration</h2>
+<p>Le fichier privé est <code>doc/tools/.env</code>. Le modèle générique est <a href="../.env.example">.env.example</a>. Cette référence décrit toutes ses variables, sans reprendre les valeurs privées de ton installation. Aucun réglage applicatif n’impose un framework : serveur, console, services et sondes sont fournis par le profil.</p>
+<p>Le format est <code>CLE=valeur</code>. Les espaces nécessitent des guillemets ; les listes et objets JSON sont généralement entourés de guillemets simples. Les chaînes multilignes utilisent des séquences JSON <code>\n</code>. Le fichier est lu comme des données : aucune commande shell, interpolation <code>$VARIABLE</code> ou substitution <code>$(...)</code> n’est exécutée. Ne lance pas <code>source .env</code>.</p>
+<pre><code># Depuis le dossier des outils :
+python3 _wt_config.py --check
+</code></pre>
+<p>Une variable exportée dans l’environnement du processus prend le pas sur le fichier. <code>WT_CONFIG_FILE</code> choisit un autre fichier ; le chemin relatif de ce sélecteur part du dossier courant du processus. Sans ce sélecteur, le fichier .env utilisé est toujours celui situé à côté de _wt_config.py. Les variables du fichier ne sont pas automatiquement exportées dans ton terminal Bash.</p>
+<p>Les valeurs d’exemple ci-dessous viennent du modèle générique. Le modèle générique fournit une définition Compose dans le .env ; adapte images, entrypoints, services, réseaux et volumes à ton application. Les fichiers et exécutables référencés par les conteneurs doivent exister dans le projet ou dans les images.</p>
+<h2 id="serveur-et-console-sans-dependance-au-framework">Serveur et console sans dépendance au framework</h2>
+<pre><code>WT_MODES=&#x27;{&quot;http&quot;:&quot;web_http&quot;}&#x27;
+WT_DEFAULT_MODE=http
+WT_SERVER_COMMANDS=&#x27;{&quot;http&quot;:[&quot;python3&quot;,&quot;-m&quot;,&quot;http.server&quot;,&quot;3000&quot;,&quot;--bind&quot;,&quot;0.0.0.0&quot;]}&#x27;
+WT_CONSOLE_SERVICE=console
+WT_CONSOLE_COMMAND=&#x27;[&quot;python3&quot;,&quot;-i&quot;]&#x27;
+</code></pre>
+<p>Les tableaux sont des arguments séparés, sans shell implicite. Ils remplacent le champ <code>command</code> des services Compose, mais conservent leur <code>entrypoint</code>, image et environnement définis dans <code>WT_COMPOSE_CONFIG</code>. Si l’image exige un shell, il faut le demander explicitement dans le tableau, par exemple <code>[&quot;sh&quot;,&quot;-c&quot;,&quot;exec mon-serveur&quot;]</code>. Les exécutables doivent exister dans l’image. Le serveur doit écouter sur l’interface du conteneur adaptée au port publié ; la console exige un service interactif, notamment <code>stdin_open: true</code> et <code>tty: true</code> dans Compose.</p>
+<p>Un lancement lit la configuration et génère le complément Compose. Un service déjà en cours ne change pas de commande à la modification du .env. Ferme l’atelier proprement avec <code>worktree_close.sh</code>, puis rouvre-le pour appliquer les changements ; une relance d’un service déjà arrêté régénère aussi sa configuration. Les superviseurs d’onglets déjà ouverts doivent être fermés puis rouverts pour recharger les paramètres importés en mémoire. Aucun service n’est redémarré par la simple édition du fichier.</p>
+<p>Le backend actuel reste Docker Compose et GNOME Terminal. Les modes réseau http/https/debug et les options du wrapper CI conservent leur protocole ; l’indépendance au framework ne remplace pas ces composants.</p>
+<h2 id="definition-docker-complete-dans-le-env">Définition Docker complète dans le .env</h2>
+<p><code>WT_COMPOSE_CONFIG</code> contient toute la configuration des conteneurs applicatifs et de l’infrastructure partagée. <code>WT_CI_COMPOSE_CONFIG</code> contient celle des conteneurs de tests. Ce sont des objets JSON au format Compose, lus dans le même .env que les autres réglages. Ils remplacent respectivement les fichiers désignés par WT_COMPOSE_FILE et WT_CI_COMPOSE_FILE lorsqu’ils ne sont pas vides. Aucun fichier Compose du projet n’est alors nécessaire aux outils.</p>
+<p>Exemple de structure, présenté avec des retours à la ligne pour la lecture :</p>
+<pre><code>{
+  &quot;services&quot;: {
+    &quot;web_http&quot;: {
+      &quot;image&quot;: &quot;python:3.12-slim&quot;,
+      &quot;working_dir&quot;: &quot;/app&quot;,
+      &quot;ports&quot;: [&quot;127.0.0.1:3000:3000&quot;],
+      &quot;volumes&quot;: [&quot;cache:/app/cache&quot;],
+      &quot;networks&quot;: [&quot;frontend&quot;]
+    }
+  },
+  &quot;volumes&quot;: {&quot;cache&quot;: {}},
+  &quot;networks&quot;: {&quot;frontend&quot;: {}}
+}
+</code></pre>
+<p>Dans le .env, l’objet doit être sérialisé sur une seule ligne et protégé par des guillemets simples :</p>
+<pre><code>WT_COMPOSE_CONFIG=&#x27;{&quot;services&quot;:{&quot;web_http&quot;:{&quot;image&quot;:&quot;python:3.12-slim&quot;}},&quot;volumes&quot;:{},&quot;networks&quot;:{}}&#x27;
+</code></pre>
+<p>Cet exemple court illustre le format ; le modèle <code>.env.example</code> inclut tous les services correspondant à ses autres variables. Pour utiliser seulement un service, adapte aussi WT_APP_SERVICES, WT_MODES et les rôles du workflow.</p>
+<p>Les champs Compose permettent de définir les particularités de l’installation :</p>
+<ul>
+<li><code>services.&lt;nom&gt;.image</code> ou <code>build</code> : image, contexte de construction et Dockerfile ; les noms, versions et chemins viennent du profil.</li>
+<li><code>command</code>, <code>entrypoint</code>, <code>working_dir</code>, <code>user</code>, <code>stdin_open</code>, <code>tty</code> : commande de base et exécution des services. WT_SERVER_COMMANDS et WT_CONSOLE_COMMAND priment sur command pour leurs services respectifs.</li>
+<li><code>environment</code>, <code>env_file</code>, <code>secrets</code>, <code>configs</code> : paramètres des conteneurs et fichiers privés éventuels. Un fichier env_file explicitement référencé reste nécessaire ; il est distinct du .env des outils.</li>
+<li><code>ports</code>, <code>volumes</code>, <code>networks</code>, <code>depends_on</code>, <code>healthcheck</code>, <code>profiles</code> et les autres champs Compose : branchements et contraintes de l’application.</li>
+<li><code>volumes</code>, <code>networks</code>, <code>secrets</code> et <code>configs</code> à la racine : définitions des ressources utilisées par les services.</li>
+</ul>
+<p>Les chemins relatifs du profil applicatif partent de WT_MAIN_ROOT. Ceux du profil CI partent du worktree de tâche, grâce au répertoire de projet passé explicitement à Compose. Les variables <code>${NOM}</code> d’un modèle sont interpolées par Compose à l’exécution, via son environnement habituel et WT_COMPOSE_ENV_FILE pour l’application ; le chargeur du .env des outils ne les interprète pas. Les valeurs d’environnement de l’application doivent être déclarées dans le modèle Compose ou dans son env_file : les réglages WT_* ne sont pas automatiquement transmis aux conteneurs.</p>
+<p>Les outils écrivent des fichiers privés dans WT_STATE_DIR/configs pour transmettre ces objets à Compose. Un nom dérivé du contenu évite d’écraser le modèle déjà utilisé par un atelier. Ces fichiers sont générés ; modifie le .env, puis ferme et rouvre l’atelier pour appliquer le profil. Les anciennes définitions générées restent disponibles pour les états existants.</p>
+<h3 id="particularites-des-worktrees">Particularités des worktrees</h3>
+<p>Le complément généré par les outils adapte ensuite le modèle du profil :</p>
+<ul>
+<li>Le code du worktree est monté à WT_CONTAINER_PATH ; les fichiers temporaires utilisent le dossier partagé configuré.</li>
+<li>Chaque tâche utilise son projet Docker et ses volumes persistants ; les services d’infrastructure restent communs.</li>
+<li>Les ports publics, réseaux privés et alias sont remplacés selon WT_HTTP_SERVICE, WT_TLS_SERVICE, WT_DEBUG_SERVICE et les variables de réseaux. Le proxy reçoit WT_PROXY_TEMPLATE au chemin WT_PROXY_CONFIG_PATH.</li>
+<li>Les dépendances Compose directes des services applicatifs de tâche sont retirées ; l’infrastructure est démarrée et vérifiée séparément par WT_INFRA_SERVICES et WT_INFRA_PROBE.</li>
+<li>La CI utilise le modèle WT_CI_COMPOSE_CONFIG, le runner WT_CI_COMMAND, les montages et le cache configurés. Elle conserve les options --db-setup/--no-db-setup du workflow actuel.</li>
+</ul>
+<p>Les contrôles de montage, de ports et d’isolation restent actifs quelle que soit la définition Docker fournie. Ce profil configure les conteneurs ; Docker et son plugin Compose doivent déjà être installés sur la machine.</p>
+<h2 id="selecteur-du-profil">Sélecteur du profil</h2>
+<h3 id="wt_config_file">WT_CONFIG_FILE</h3>
+<p>Chemin du fichier .env alternatif, défini dans l’environnement du processus, avant le démarrage des outils. Ne se définit pas à l’intérieur du .env pour sélectionner ce même fichier.</p>
+<pre><code>WT_CONFIG_FILE=/chemin/profil.env python3 _wt_config.py --check
+</code></pre>
+<h2 id="variables-du-fichier-env">Variables du fichier .env</h2>
+<h3 id="wt_main_root">WT_MAIN_ROOT</h3>
+<p>Chemin du dépôt principal. Un chemin relatif part du dossier contenant les outils, même avec WT_CONFIG_FILE. Les patchs sont toujours centralisés dans son sous-dossier doc.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_MAIN_ROOT=../..
+</code></pre>
+<h3 id="wt_project_name">WT_PROJECT_NAME</h3>
+<p>Nom du projet, employé dans les valeurs de repli et les titres.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_PROJECT_NAME=project
+</code></pre>
+<h3 id="wt_worktree_prefix">WT_WORKTREE_PREFIX</h3>
+<p>Préfixe des dossiers de tâches, créés à côté du dépôt principal. Sans séparateur de chemin.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_WORKTREE_PREFIX=project-
+</code></pre>
+<h3 id="wt_base_branch">WT_BASE_BRANCH</h3>
+<p>Branche de référence pour créer les tâches et actualiser leur base. Les commandes historiques contenant master utilisent cette valeur.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_BASE_BRANCH=main
+</code></pre>
+<h3 id="wt_remote">WT_REMOTE</h3>
+<p>Remote Git de référence pour les actualisations et les audits.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_REMOTE=origin
+</code></pre>
+<h3 id="wt_feature_prefix">WT_FEATURE_PREFIX</h3>
+<p>Préfixe des branches de tâches, avec le / final.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_FEATURE_PREFIX=feature/
+</code></pre>
+<h3 id="wt_ticket_prefix">WT_TICKET_PREFIX</h3>
+<p>Préfixe des branches de tickets, avec le / final.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_TICKET_PREFIX=tickets/
+</code></pre>
+<h3 id="wt_state_dir">WT_STATE_DIR</h3>
+<p>Dossier relatif au dépôt principal contenant verrous, états des ateliers et configurations Compose générées.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_STATE_DIR=doc/docker-worktrees
+</code></pre>
+<h3 id="wt_documents_dir">WT_DOCUMENTS_DIR</h3>
+<p>Dossier relatif à chaque dépôt pour les notes, rapports Git et le lien vers les outils. Ne change pas le stockage des patchs : WT_MAIN_ROOT/doc.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_DOCUMENTS_DIR=doc
+</code></pre>
+<h3 id="wt_journal_dir">WT_JOURNAL_DIR</h3>
+<p>Dossier relatif au dépôt principal pour les journaux personnels .jsont et liens de reprise .jsonl.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_JOURNAL_DIR=sessions_codex
+</code></pre>
+<h3 id="wt_personal_names">WT_PERSONAL_NAMES</h3>
+<p>Liste JSON de noms situés à la racine du dépôt, considérés comme personnels et exclus du travail à committer.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_PERSONAL_NAMES=&#x27;[&quot;.idea&quot;, &quot;doc&quot;, &quot;sessions_codex&quot;, &quot;.codex&quot;, &quot;AGENTS-local.md&quot;, &quot;AGENTS.override.md&quot;]&#x27;
+</code></pre>
+<h3 id="wt_personal_prefixes">WT_PERSONAL_PREFIXES</h3>
+<p>Liste JSON de préfixes de noms personnels à la racine, par exemple .env. Les fichiers correspondants sont protégés des commits via les outils.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_PERSONAL_PREFIXES=&#x27;[&quot;vimsession_&quot;, &quot;.env&quot;]&#x27;
+</code></pre>
+<h3 id="wt_profile_files">WT_PROFILE_FILES</h3>
+<p>Liste JSON de fichiers d’instructions du dépôt principal liés dans chaque worktree. Chemins relatifs sûrs.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_PROFILE_FILES=&#x27;[&quot;AGENTS-local.md&quot;]&#x27;
+</code></pre>
+<h3 id="wt_profile_override">WT_PROFILE_OVERRIDE</h3>
+<p>Chaîne JSON multiligne initialisant AGENTS.override.md. Un fichier existant différent est conservé et signalé.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_PROFILE_OVERRIDE=&#x27;&quot;# Instructions locales\n\nLis AGENTS.md et AGENTS-local.md ; conserve les journaux centralisés.\n&quot;&#x27;
+</code></pre>
+<h3 id="wt_agent_instructions">WT_AGENT_INSTRUCTIONS</h3>
+<p>Texte transmis à l’agent lors du lancement, complété par le chemin du journal central et le contexte de tâche.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_AGENT_INSTRUCTIONS=&#x27;Lis AGENTS.md et AGENTS-local.md.&#x27;
+</code></pre>
+<h3 id="wt_legacy_root_aliases">WT_LEGACY_ROOT_ALIASES</h3>
+<p>Liste JSON d’anciens chemins du dépôt principal à remplacer dans les copies initiales des sessions Vim.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_LEGACY_ROOT_ALIASES=&#x27;[]&#x27;
+</code></pre>
+<h3 id="wt_copy_files">WT_COPY_FILES</h3>
+<p>Liste JSON de fichiers privés copiés du dépôt principal vers une nouvelle tâche si la destination est absente, avec permissions 600.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_COPY_FILES=&#x27;[&quot;.env&quot;]&#x27;
+</code></pre>
+<h3 id="wt_shared_temp_dir">WT_SHARED_TEMP_DIR</h3>
+<p>Dossier temporaire relatif partagé via un lien depuis les tâches. La préparation peut nettoyer l’ancien contenu temporaire. Refus des chemins dangereux et des chevauchements avec les documents ou journaux.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_SHARED_TEMP_DIR=tmp
+</code></pre>
+<h3 id="wt_notes_template">WT_NOTES_TEMPLATE</h3>
+<p>Fichier modèle relatif au dépôt principal utilisé pour créer les notes de suivi d’une nouvelle tâche.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_NOTES_TEMPLATE=doc/model_suivi.txt
+</code></pre>
+<h3 id="wt_docker_project">WT_DOCKER_PROJECT</h3>
+<p>Nom du projet Docker Compose principal. Sert aussi à reconnaître ses conteneurs.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_DOCKER_PROJECT=project
+</code></pre>
+<h3 id="wt_docker_prefix">WT_DOCKER_PREFIX</h3>
+<p>Préfixe des projets Docker Compose propres aux worktrees, suivi de leur identifiant stable.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_DOCKER_PREFIX=project-wt-
+</code></pre>
+<h3 id="wt_volume_prefix">WT_VOLUME_PREFIX</h3>
+<p>Préfixe des noms de volumes persistants propres aux worktrees.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_VOLUME_PREFIX=project_wt_
+</code></pre>
+<h3 id="wt_runtime_label">WT_RUNTIME_LABEL</h3>
+<p>Clé du label Docker identifiant les runtimes de tâches ; sa valeur est worktree. Éviter de changer cette clé pendant que des runtimes existent.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_RUNTIME_LABEL=worktree.runtime
+</code></pre>
+<h3 id="wt_worktree_label">WT_WORKTREE_LABEL</h3>
+<p>Clé du label Docker contenant le chemin absolu du worktree. Conserver cette clé pour reconnaître les conteneurs existants.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_WORKTREE_LABEL=worktree.path
+</code></pre>
+<h3 id="wt_compose_file">WT_COMPOSE_FILE</h3>
+<p>Fichier Compose applicatif de repli, relatif au dépôt principal, utilisé uniquement si WT_COMPOSE_CONFIG est vide ou absent. Si le profil fournit la configuration complète, ce fichier n’est pas lu.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_COMPOSE_FILE=compose.yml
+</code></pre>
+<h3 id="wt_compose_env_file">WT_COMPOSE_ENV_FILE</h3>
+<p>Fichier d’environnement utilisé par Compose, relatif au dépôt principal. Distinct du .env des outils. Si absent, /dev/null est utilisé.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_COMPOSE_ENV_FILE=.env
+</code></pre>
+<h3 id="wt_app_services">WT_APP_SERVICES</h3>
+<p>Liste JSON des services applicatifs à monter sur le bon dépôt et à isoler par worktree. Inclure les services serveur et console configurés.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_APP_SERVICES=&#x27;[&quot;runner&quot;, &quot;web&quot;, &quot;web_http&quot;, &quot;console&quot;, &quot;shell&quot;, &quot;debug&quot;]&#x27;
+</code></pre>
+<h3 id="wt_infra_services">WT_INFRA_SERVICES</h3>
+<p>Liste JSON des services communs démarrés dans le projet principal. Ils ne sont pas recréés pour chaque tâche. Une liste vide désactive cette étape.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_INFRA_SERVICES=&#x27;[]&#x27;
+</code></pre>
+<h3 id="wt_modes">WT_MODES</h3>
+<p>Objet JSON associant chaque mode à un nom de service serveur Compose. Les modes http, https et debug ont des règles de ports et de proxy propres au backend actuel.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_MODES=&#x27;{&quot;http&quot;: &quot;web_http&quot;, &quot;https&quot;: &quot;web&quot;, &quot;debug&quot;: &quot;debug&quot;}&#x27;
+</code></pre>
+<h3 id="wt_default_mode">WT_DEFAULT_MODE</h3>
+<p>Mode choisi lorsqu’aucun mode explicite ni état précédent ne s’applique. Doit figurer dans WT_MODES.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_DEFAULT_MODE=http
+</code></pre>
+<h3 id="wt_container_path">WT_CONTAINER_PATH</h3>
+<p>Chemin de montage du code dans les conteneurs applicatifs, également employé par le runner CI.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_CONTAINER_PATH=/app
+</code></pre>
+<h3 id="wt_console_service">WT_CONSOLE_SERVICE</h3>
+<p>Nom du service Compose utilisé par le rôle interne console. Doit être distinct des services serveur.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_CONSOLE_SERVICE=console
+</code></pre>
+<h3 id="wt_shell_service">WT_SHELL_SERVICE</h3>
+<p>Service Compose dont l’image fournit le shell de nettoyage des fichiers temporaires générés par Docker.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_SHELL_SERVICE=shell
+</code></pre>
+<h3 id="wt_proxy_service">WT_PROXY_SERVICE</h3>
+<p>Nom du service Compose qui publie le proxy pour les modes autres que http.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_PROXY_SERVICE=caddy
+</code></pre>
+<h3 id="wt_main_port">WT_MAIN_PORT</h3>
+<p>Port public du serveur principal sur localhost.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_MAIN_PORT=3000
+</code></pre>
+<h3 id="wt_port_start">WT_PORT_START</h3>
+<p>Premier port public attribuable aux tâches.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_PORT_START=3002
+</code></pre>
+<h3 id="wt_port_end">WT_PORT_END</h3>
+<p>Dernier port public attribuable aux tâches, inclus. Un worktree conserve son ancien port tant qu’il reste dans cette plage ; un port occupé provoque un refus.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_PORT_END=3009
+</code></pre>
+<h3 id="wt_debug_port">WT_DEBUG_PORT</h3>
+<p>Premier port public de débogage des tâches. Le port effectif ajoute le décalage du port HTTP par rapport à WT_PORT_START.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_DEBUG_PORT=1234
+</code></pre>
+<h3 id="wt_internal_port">WT_INTERNAL_PORT</h3>
+<p>Port applicatif dans les conteneurs, cible des publications HTTP et du proxy.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_INTERNAL_PORT=3000
+</code></pre>
+<h3 id="wt_internal_debug_port">WT_INTERNAL_DEBUG_PORT</h3>
+<p>Port de débogage interne publié par le service debug.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_INTERNAL_DEBUG_PORT=1234
+</code></pre>
+<h3 id="wt_volumes">WT_VOLUMES</h3>
+<p>Liste JSON des clés de volumes Compose auxquelles donner un nom persistant propre au worktree.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_VOLUMES=&#x27;[&quot;cache&quot;, &quot;dependencies&quot;]&#x27;
+</code></pre>
+<h3 id="wt_proxy_volume">WT_PROXY_VOLUME</h3>
+<p>Clé du volume Compose persistant du proxy, également isolé par tâche.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_PROXY_VOLUME=caddy_config
+</code></pre>
+<h3 id="wt_app_networks">WT_APP_NETWORKS</h3>
+<p>Objet JSON des réseaux affectés aux services applicatifs des tâches. Les options correspondent aux options Compose de chaque réseau.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_APP_NETWORKS=&#x27;{&quot;frontend&quot;: {}, &quot;backend&quot;: {}, &quot;shared_frontend&quot;: {}}&#x27;
+</code></pre>
+<h3 id="wt_private_network">WT_PRIVATE_NETWORK</h3>
+<p>Clé du réseau privé dans lequel les services sélectionnés reçoivent l’alias applicatif.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_PRIVATE_NETWORK=frontend
+</code></pre>
+<h3 id="wt_shared_network">WT_SHARED_NETWORK</h3>
+<p>Clé du réseau partagé où l’alias applicatif est interdit pour éviter les collisions entre tâches.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_SHARED_NETWORK=shared_frontend
+</code></pre>
+<h3 id="wt_app_alias">WT_APP_ALIAS</h3>
+<p>Alias réseau du serveur, utilisé notamment par le proxy dans le réseau privé.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_APP_ALIAS=app
+</code></pre>
+<h3 id="wt_alias_services">WT_ALIAS_SERVICES</h3>
+<p>Liste JSON des services recevant WT_APP_ALIAS dans WT_PRIVATE_NETWORK.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_ALIAS_SERVICES=&#x27;[&quot;web&quot;, &quot;debug&quot;]&#x27;
+</code></pre>
+<h3 id="wt_http_service">WT_HTTP_SERVICE</h3>
+<p>Service serveur dont les ports sont remplacés par le port HTTP attribué au worktree.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_HTTP_SERVICE=web_http
+</code></pre>
+<h3 id="wt_debug_service">WT_DEBUG_SERVICE</h3>
+<p>Service serveur dont les ports sont remplacés par le port de débogage attribué.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_DEBUG_SERVICE=debug
+</code></pre>
+<h3 id="wt_tls_service">WT_TLS_SERVICE</h3>
+<p>Service serveur HTTPS sans publication directe ; le proxy publie le port de la tâche.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_TLS_SERVICE=web
+</code></pre>
+<h3 id="wt_external_networks">WT_EXTERNAL_NETWORKS</h3>
+<p>Objet JSON associant les clés des réseaux Compose aux noms Docker des réseaux partagés préexistants.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_EXTERNAL_NETWORKS=&#x27;{&quot;backend&quot;: &quot;project_backend&quot;, &quot;shared_frontend&quot;: &quot;project_frontend&quot;}&#x27;
+</code></pre>
+<h3 id="wt_proxy_config_path">WT_PROXY_CONFIG_PATH</h3>
+<p>Chemin de la configuration du proxy à monter dans son conteneur.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_PROXY_CONFIG_PATH=/etc/caddy/Caddyfile
+</code></pre>
+<h3 id="wt_proxy_template">WT_PROXY_TEMPLATE</h3>
+<p>Chaîne JSON multiligne du fichier de configuration du proxy. Le marqueur @PORT@ est remplacé par le port public attribué. La syntaxe dépend du proxy choisi.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_PROXY_TEMPLATE=&#x27;&quot;{\n auto_https disable_redirects\n}\nhttps://localhost:3000 {\n tls internal\n reverse_proxy app:3000 {\n  header_up X-Forwarded-Proto https\n  header_up X-Forwarded-Port @PORT@\n }\n}\n&quot;&#x27;
+</code></pre>
+<h3 id="wt_server_probe">WT_SERVER_PROBE</h3>
+<p>Liste JSON argv exécutée par docker exec dans le conteneur serveur pour vérifier sa disponibilité. Une liste vide vérifie seulement que les services requis tournent. Délai total de disponibilité : 60 secondes.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_SERVER_PROBE=&#x27;[&quot;python3&quot;, &quot;-c&quot;, &quot;import socket; socket.create_connection((&#x27;&quot;&#x27;&quot;&#x27;127.0.0.1&#x27;&quot;&#x27;&quot;&#x27;, 3000), 2).close()&quot;]&#x27;
+</code></pre>
+<h3 id="wt_infra_probe">WT_INFRA_PROBE</h3>
+<p>Liste JSON argv ajoutée à la commande Compose principale pour attendre l’infrastructure, par exemple [&quot;exec&quot;,&quot;-T&quot;,&quot;database&quot;,&quot;check-ready&quot;]. Liste vide : aucune sonde. Délai total : 300 secondes.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_INFRA_PROBE=&#x27;[]&#x27;
+</code></pre>
+<h3 id="wt_shared_config_files">WT_SHARED_CONFIG_FILES</h3>
+<p>Liste JSON de fichiers relatifs comparés au dépôt principal avant activation. Une différence dans la tâche provoque un refus.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_SHARED_CONFIG_FILES=&#x27;[&quot;compose.yml&quot;]&#x27;
+</code></pre>
+<h3 id="wt_runtime_dirs">WT_RUNTIME_DIRS</h3>
+<p>Liste JSON de dossiers à créer dans le dépôt ciblé avant activation des services, par exemple log.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_RUNTIME_DIRS=&#x27;[&quot;log&quot;]&#x27;
+</code></pre>
+<h3 id="wt_role_titles">WT_ROLE_TITLES</h3>
+<p>Objet JSON des rôles et titres des onglets de tâche. Rôles reconnus : codex, console, server, vim (Bash) et vim_doc (notes Vim). L’ordre des clés donne l’ordre des onglets.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_ROLE_TITLES=&#x27;{&quot;codex&quot;: &quot;Codex&quot;, &quot;console&quot;: &quot;Console applicative&quot;, &quot;server&quot;: &quot;Service applicatif&quot;, &quot;vim&quot;: &quot;Bash&quot;, &quot;vim_doc&quot;: &quot;Vim documentation&quot;}&#x27;
+</code></pre>
+<h3 id="wt_terminal_profile_namespace">WT_TERMINAL_PROFILE_NAMESPACE</h3>
+<p>Préfixe employé pour calculer l’identifiant stable du profil GNOME Terminal à partir du dépôt principal.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_TERMINAL_PROFILE_NAMESPACE=worktree-atelier:
+</code></pre>
+<h3 id="wt_terminal_profile_title">WT_TERMINAL_PROFILE_TITLE</h3>
+<p>Préfixe du nom visible du profil GNOME Terminal, complété par un identifiant.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_TERMINAL_PROFILE_TITLE=&#x27;Worktrees &#x27;
+</code></pre>
+<h3 id="wt_special_commits">WT_SPECIAL_COMMITS</h3>
+<p>Objet JSON associant un message spécial à une liste de fichiers relatifs à ajouter automatiquement avant commit. Objet vide conseillé pour garder une préparation explicite de l’index.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_SPECIAL_COMMITS=&#x27;{}&#x27;
+</code></pre>
+<h3 id="wt_push_targets">WT_PUSH_TARGETS</h3>
+<p>Objet JSON des destinations acceptées par push.sh. Chaque entrée contient remote et, facultativement, before (liste argv exécutée avant le push, délai 30 secondes). Exemple : {&quot;origin&quot;:{&quot;remote&quot;:&quot;origin&quot;}}.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_PUSH_TARGETS=&#x27;{&quot;origin&quot;: {&quot;remote&quot;: &quot;origin&quot;}}&#x27;
+</code></pre>
+<h3 id="wt_force_push_remotes">WT_FORCE_PUSH_REMOTES</h3>
+<p>Liste JSON des remotes pour lesquels un --force-with-lease explicitement demandé est autorisé. Une liste vide interdit cette option partout.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_FORCE_PUSH_REMOTES=&#x27;[]&#x27;
+</code></pre>
+<h3 id="wt_audit_targets">WT_AUDIT_TARGETS</h3>
+<p>Liste JSON des références Git examinées par merge_to_dev.sh. Les audits ne réalisent pas de fusion.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_AUDIT_TARGETS=&#x27;[]&#x27;
+</code></pre>
+<h3 id="wt_ci_project">WT_CI_PROJECT</h3>
+<p>Nom du projet Compose de tests, commun aux tâches et protégé par un verrou CI.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_CI_PROJECT=project-ci
+</code></pre>
+<h3 id="wt_ci_compose_file">WT_CI_COMPOSE_FILE</h3>
+<p>Fichier Compose CI de repli, relatif au worktree de tâche, utilisé uniquement si WT_CI_COMPOSE_CONFIG est vide ou absent.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_CI_COMPOSE_FILE=compose.ci.yml
+</code></pre>
+<h3 id="wt_ci_schema_glob">WT_CI_SCHEMA_GLOB</h3>
+<p>Motif glob relatif à la tâche pour les fichiers de schéma dont le hash doit être compatible avec la dernière préparation CI connue.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_CI_SCHEMA_GLOB=&#x27;schema/*.sql&#x27;
+</code></pre>
+<h3 id="wt_ci_command">WT_CI_COMMAND</h3>
+<p>Liste JSON argv du runner de tests exécuté dans le service CI. Les arguments utilisateur sont ajoutés ensuite. Le wrapper ajoute actuellement --no-db-setup par défaut et reconnaît --db-setup ; prévoir un runner compatible.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_CI_COMMAND=&#x27;[&quot;./run-tests&quot;]&#x27;
+</code></pre>
+<h3 id="wt_ci_service">WT_CI_SERVICE</h3>
+<p>Nom du service Compose exécutant les tests.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_CI_SERVICE=test
+</code></pre>
+<h3 id="wt_ci_shared_dirs">WT_CI_SHARED_DIRS</h3>
+<p>Liste JSON de dossiers relatifs montés en lecture seule depuis le dépôt principal lorsqu’ils sont absents de la tâche.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_CI_SHARED_DIRS=&#x27;[]&#x27;
+</code></pre>
+<h3 id="wt_ci_cache_key">WT_CI_CACHE_KEY</h3>
+<p>Clé du volume Compose CI dont le nom est remplacé pour isoler le cache de la tâche.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_CI_CACHE_KEY=cache
+</code></pre>
+<h3 id="wt_ci_cache_prefix">WT_CI_CACHE_PREFIX</h3>
+<p>Préfixe du nom du volume de cache CI, suivi de l’identifiant du worktree et du suffixe _cache.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_CI_CACHE_PREFIX=project_ci_
+</code></pre>
+<h3 id="wt_main_role_titles">WT_MAIN_ROLE_TITLES</h3>
+<p>Objet JSON des rôles et titres des onglets ajoutés au terminal principal. Rôles de services : console et server.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_MAIN_ROLE_TITLES=&#x27;{&quot;console&quot;: &quot;Console applicative&quot;, &quot;server&quot;: &quot;Service principal&quot;}&#x27;
+</code></pre>
+<h3 id="wt_branch_marker">WT_BRANCH_MARKER</h3>
+<p>Chemin relatif du fichier où put_branch_in_idea.sh écrit le nom de la branche courante.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_BRANCH_MARKER=.idea
+</code></pre>
+<h3 id="wt_legacy_env_prefixes">WT_LEGACY_ENV_PREFIXES</h3>
+<p>Liste JSON des anciens préfixes de variables de session acceptés pour les superviseurs encore ouverts. Les nouveaux ateliers utilisent WT_.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_LEGACY_ENV_PREFIXES=&#x27;[]&#x27;
+</code></pre>
+<h3 id="wt_server_commands">WT_SERVER_COMMANDS</h3>
+<p>Objet JSON associant les modes de WT_MODES aux listes argv de lancement du serveur dans le conteneur. Remplace command du service Compose pour le principal et les tâches. Exemple générique : {&quot;http&quot;:[&quot;python3&quot;,&quot;-m&quot;,&quot;http.server&quot;,&quot;3000&quot;,&quot;--bind&quot;,&quot;0.0.0.0&quot;]}. Mode absent ou objet vide : conserver command du Compose. Deux modes utilisant le même service doivent avoir la même commande.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_SERVER_COMMANDS=&#x27;{&quot;http&quot;: [&quot;python3&quot;, &quot;-m&quot;, &quot;http.server&quot;, &quot;3000&quot;, &quot;--bind&quot;, &quot;0.0.0.0&quot;], &quot;https&quot;: [&quot;python3&quot;, &quot;-m&quot;, &quot;http.server&quot;, &quot;3000&quot;, &quot;--bind&quot;, &quot;0.0.0.0&quot;], &quot;debug&quot;: [&quot;python3&quot;, &quot;-m&quot;, &quot;http.server&quot;, &quot;3000&quot;, &quot;--bind&quot;, &quot;0.0.0.0&quot;]}&#x27;
+</code></pre>
+<h3 id="wt_console_command">WT_CONSOLE_COMMAND</h3>
+<p>Liste JSON argv de lancement de la console dans son conteneur. Remplace command du service WT_CONSOLE_SERVICE. Exemple générique : [&quot;python3&quot;,&quot;-i&quot;]. Liste vide : conserver command du Compose.</p>
+<p>Exemple générique (syntaxe <code>.env</code>) :</p>
+<pre><code>WT_CONSOLE_COMMAND=&#x27;[&quot;python3&quot;, &quot;-i&quot;]&#x27;
+</code></pre>
+<h3 id="wt_compose_config">WT_COMPOSE_CONFIG</h3>
+<p>Définition Compose complète de l’application et des services d’infrastructure, sous forme d’objet JSON. Contient services, images ou build, volumes, réseaux, environnement, entrypoints et toutes les particularités des conteneurs. Prioritaire sur WT_COMPOSE_FILE. Chemins relatifs à WT_MAIN_ROOT. Objet vide <code>{}</code> : employer le fichier de repli configuré. Un objet non vide doit contenir une section services non vide. Voir la section sur la définition Docker complète ci-dessus et le modèle <a href="../.env.example">.env.example</a>.</p>
+<h3 id="wt_ci_compose_config">WT_CI_COMPOSE_CONFIG</h3>
+<p>Définition Compose complète des tests, sous forme d’objet JSON. Prioritaire sur WT_CI_COMPOSE_FILE. Chemins relatifs au worktree de tâche ; images, build, base de test et volumes sont propres à ce profil CI. Objet vide <code>{}</code> : employer le fichier de repli configuré. Un objet non vide doit contenir une section services non vide. Voir la section sur la définition Docker complète ci-dessus et le modèle <a href="../.env.example">.env.example</a>.</p>
+<h2 id="variables-de-session-internes">Variables de session internes</h2>
+<p>Les variables <code>WT_*</code> visibles dans un atelier ne sont pas toutes des réglages .env. <code>WT_WORKTREE</code>, <code>WT_ROLE</code>, les chemins <code>WT_VIM_*</code> et <code>WT_SHELL_CLOSE</code> sont des informations temporaires transmises par les superviseurs. Ne les définis pas dans le profil. La liste ci-dessus couvre les variables de configuration du modèle, plus le sélecteur WT_CONFIG_FILE.</p>
+</main></body></html>
