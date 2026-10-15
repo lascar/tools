@@ -701,6 +701,93 @@ class WorktreeTests(unittest.TestCase):
     def git(self, root, *args):
         return subprocess.check_output(['git', '-C', str(root), *args], stderr=subprocess.PIPE, text=True).strip()
 
+    def test_close_from_main_without_task_closes_all(self):
+        with patch.object(sys, 'argv', ['tools', 'worktree_close']), \
+                patch.object(cli, 'context', side_effect=lambda path=None, **kw: c.context(path or self.main, **kw)), \
+                patch.object(atelier, 'close_all') as close_all, patch.object(atelier, 'close') as close:
+            cli.main()
+        close_all.assert_called_once_with()
+        close.assert_not_called()
+
+    def test_close_from_task_keeps_single_target(self):
+        with patch.object(sys, 'argv', ['tools', 'worktree_close']), \
+                patch.object(cli, 'context', return_value=(self.root, 'feature/1234_réglage', '1234_réglage')), \
+                patch.object(atelier, 'close_all') as close_all, patch.object(atelier, 'close') as close:
+            cli.main()
+        close.assert_called_once_with(self.root)
+        close_all.assert_not_called()
+
+    def test_close_named_task_from_main_keeps_single_target(self):
+        with patch.object(sys, 'argv', ['tools', 'worktree_close', '1234_réglage']), \
+                patch.object(cli, 'context', side_effect=lambda path=None, **kw: c.context(path or self.main, **kw)), \
+                patch.object(atelier, 'close_all') as close_all, patch.object(atelier, 'close') as close:
+            cli.main()
+        close.assert_called_once_with(self.root)
+        close_all.assert_not_called()
+
+    def test_close_all_selects_only_open_worktrees_and_preserves_main(self):
+        self.status_record()
+        inactive = self.main.parent / 'project-inactive'
+        with patch.object(atelier, 'worktrees', return_value=[{'worktree': str(p)} for p in (self.main, self.root, inactive)]), \
+                patch.object(atelier, 'close') as close:
+            atelier.close_all()
+        close.assert_called_once_with(self.root)
+
+    def test_close_all_without_open_worktree_does_nothing(self):
+        with patch.object(atelier, 'close') as close:
+            atelier.close_all()
+        close.assert_not_called()
+
+    def test_close_all_stops_on_refusal_after_previous_successes(self):
+        second, third = self.main.parent / 'project-second', self.main.parent / 'project-third'
+        rows = [{'worktree': str(p)} for p in (self.root, second, third)]
+        with patch.object(atelier, 'worktrees', return_value=rows), \
+                patch.object(atelier, 'open_roles', return_value=['vim']), \
+                patch.object(atelier, 'close', side_effect=[None, c.ToolError('Buffers modifiés')]) as close:
+            with self.assertRaisesRegex(c.ToolError, '1/3.*Buffers modifiés'):
+                atelier.close_all()
+        self.assertEqual([call.args[0] for call in close.call_args_list], [self.root, second])
+
+    def status_record(self, role='vim', **changes):
+        folder = atelier.directory(self.root)
+        c.atomic(folder / 'atelier.json', {'generation': 'current', 'status': 'open'})
+        record = {'pid': os.getpid(), 'start': atelier.identity(os.getpid()),
+                  'generation': 'current', 'worktree': str(self.root), 'role': role, 'status': 'running'}
+        record.update(changes)
+        c.atomic(folder / (role + '.json'), record)
+
+    def test_status_counts_an_open_shell_without_codex(self):
+        import io
+        self.status_record()
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            cli.status_all()
+        text = output.getvalue()
+        self.assertIn('atelier OUVERT (onglets : Bash)', text)
+        self.assertIn('1 atelier(s) de worktree actuellement ouvert(s).', text)
+        self.assertIn('refs/heads/feature/1234_réglage', text)
+        self.assertIn('propre', text)
+
+    def test_status_ignores_stale_foreign_closed_and_incomplete_records(self):
+        cases = ({'start': 'previous-process'}, {'generation': 'old'},
+                 {'worktree': str(self.main)}, {'status': 'closed'}, {'start': None})
+        for changes in cases:
+            with self.subTest(changes=changes):
+                self.status_record(**changes)
+                self.assertEqual(atelier.open_roles(self.root), [])
+        (atelier.directory(self.root) / 'atelier.json').unlink()
+        self.assertEqual(atelier.open_roles(self.root), [])
+
+    def test_status_reports_no_open_worktree_and_keeps_git_changes(self):
+        import io
+        (self.root / 'tracked.txt').write_text('unfinished')
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            cli.status_all()
+        self.assertIn('atelier fermé', output.getvalue())
+        self.assertIn('Aucun atelier de worktree actuellement ouvert.', output.getvalue())
+        self.assertIn('M tracked.txt', output.getvalue())
+
     def test_existing_branch_uses_worktree_without_switching_master(self):
         self.assertEqual(self.root.parent, self.main.parent)
         self.assertEqual(self.git(self.main, 'branch', '--show-current'), 'master')

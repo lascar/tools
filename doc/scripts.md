@@ -68,7 +68,7 @@ Pour le principal, recherche un shell dont le dossier physique est la racine pri
 worktree_status.sh
 ```
 
-Affiche les worktrees enregistrés, leurs branches et leurs changements Git suivis ou non suivis. Lecture seule ; ne lance pas de service et ne nettoie rien. Pour les états Docker, utilise `worktree_docker.sh status`.
+Affiche les worktrees enregistrés, leurs branches et leurs changements Git suivis ou non suivis. Pour chaque tâche, indique `atelier OUVERT` avec les onglets actifs ou `atelier fermé`, puis donne le nombre total d’ateliers ouverts. Un onglet géré encore vivant suffit, même sans Codex ; les anciens états et PID périmés sont ignorés. Les terminaux ouverts manuellement en dehors des outils ne sont pas comptés. Lecture seule ; ne lance pas de service et ne nettoie rien. Pour les états Docker, utilise `worktree_docker.sh status`.
 
 ### worktree_close.sh
 
@@ -76,9 +76,9 @@ Affiche les worktrees enregistrés, leurs branches et leurs changements Git suiv
 worktree_close.sh [tâche]
 ```
 
-Ferme l’atelier nommé, ou celui du worktree courant. Vérifie les buffers et commandes actives, propose si nécessaire l’arrêt coopératif de commandes, arrête les services ciblés puis sauvegarde les changements en patch dans WT_MAIN_ROOT/doc avant la fermeture finale.
+Avec une tâche, ferme uniquement l’atelier nommé. Sans argument depuis un worktree de tâche, ferme cet atelier. Sans argument depuis le dépôt principal, ferme successivement tous les ateliers de worktree ouverts détectés par `worktree_status.sh`, en conservant le terminal et les services du principal. Les ateliers fermés sont ignorés. Vérifie les buffers et commandes actives, propose si nécessaire l’arrêt coopératif de commandes, arrête les services ciblés puis sauvegarde les changements en patch dans WT_MAIN_ROOT/doc avant la fermeture finale.
 
-Un refus, une commande non arrêtée ou un échec de sauvegarde bloque la suite. Le worktree, sa branche et son journal central sont conservés. La fonction Bash ramène au principal si le shell reste ouvert ; un terminal supplémentaire de l’atelier peut être fermé.
+Un refus, une commande non arrêtée ou un échec de sauvegarde bloque la suite. Lors d’une fermeture collective, le premier blocage interrompt les fermetures restantes et indique combien ont déjà réussi ; les ateliers déjà fermés le restent. Le worktree, sa branche et son journal central sont conservés. La fonction Bash ramène au principal si le shell reste ouvert ; un terminal supplémentaire de l’atelier peut être fermé.
 
 ### worktree_remove.sh
 

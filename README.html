@@ -36,8 +36,8 @@ nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
 <li><a href="doc/scripts.html#worktree_opensh">worktree_open.sh</a> — ouvrir une branche existante dans son worktree.</li>
 <li><a href="doc/scripts.html#worktree_open_currentsh">worktree_open_current.sh</a> — ouvrir l’atelier du worktree courant.</li>
 <li><a href="doc/scripts.html#worktree_switchsh">worktree_switch.sh</a> — afficher un terminal existant.</li>
-<li><a href="doc/scripts.html#worktree_statussh">worktree_status.sh</a> — afficher l’état Git des worktrees.</li>
-<li><a href="doc/scripts.html#worktree_closesh">worktree_close.sh</a> — fermer un atelier en conservant son worktree.</li>
+<li><a href="doc/scripts.html#worktree_statussh">worktree_status.sh</a> — afficher l’état Git des worktrees, leurs ateliers ouverts ou fermés et le total ouvert.</li>
+<li><a href="doc/scripts.html#worktree_closesh">worktree_close.sh</a> — fermer un atelier ; sans argument depuis le principal, fermer tous les ateliers ouverts en conservant les worktrees.</li>
 <li><a href="doc/scripts.html#worktree_removesh">worktree_remove.sh</a> — retirer explicitement un worktree fermé, après archive vérifiée.</li>
 <li><a href="doc/scripts.html#change_branchsh">change_branch.sh</a> — rejoindre un worktree inactif dans le terminal appelant, après actualisation et fusion.</li>
 </ul>
@@ -113,6 +113,13 @@ worktree_reach.sh 1234_ma_tache
 worktree_reach.sh                 # Afficher le terminal principal existant
 worktree_close.sh 1234_ma_tache
 </code></pre>
+<h3 id="voir-les-ateliers-ouverts-et-les-fermer">Voir les ateliers ouverts et les fermer</h3>
+<pre><code>worktree_status.sh                # État Git, onglets actifs et nombre d’ateliers ouverts
+worktree_close.sh 1234_ma_tache   # Fermer uniquement cette tâche
+</code></pre>
+<p>Sans argument, <code>worktree_close.sh</code> ferme la tâche courante lorsqu’il est lancé dans son worktree. Depuis WT_MAIN_ROOT, il ferme tous les ateliers de tâches ouverts, un par un. Les ateliers déjà fermés sont ignorés ; le terminal et les services du principal restent disponibles.</p>
+<p>La fermeture collective s’arrête au premier refus (buffers Vim non enregistrés, commande active non arrêtée ou sauvegarde impossible). Le message indique la tâche bloquante et le nombre de fermetures réussies. Corrige le blocage, puis relance la même commande depuis le principal : les ateliers encore ouverts sont de nouveau détectés. Aucune branche ni aucun worktree n’est supprimé.</p>
+<p>Le statut et la fermeture collective concernent les ateliers gérés par les outils. Un simple terminal ouvert manuellement dans un dossier de tâche ne suffit pas à déclarer un atelier ouvert.</p>
 <p><code>worktree_reach.sh</code> crée ou rattache le worktree si nécessaire, ouvre un atelier fermé, ou affiche un atelier vivant. <code>--no-update</code> évite l’actualisation Git lors d’une ouverture. Sans tâche, la commande affiche le terminal principal existant sans actualisation ni démarrage du runtime.</p>
 <p><code>change_branch.sh 1234_ma_tache</code> utilise un worktree déjà rattaché : contrôles d’inactivité et de propreté, actualisation en avance rapide de la branche principale, véritable <code>cd</code> dans le terminal appelant, puis fusion dans la branche de tâche. Un refus préalable conserve le dossier initial ; un conflit laisse le terminal dans le worktree cible. La fonction Bash est obligatoire pour ce déplacement.</p>
 <p><code>desc_git.sh &lt;tâche&gt;</code> produit le rapport Git dans le dossier de documentation du worktree existant demandé, même depuis le dépôt principal. Sans argument, <code>desc_git.sh</code> décrit le worktree courant. Le rapport commence par les fichiers modifiés, puis détaille les commits dont le sujet commence par le nom exact de la tâche, y compris ceux déjà intégrés dans la branche principale. La commande ne change pas de branche et ne crée pas de worktree.</p>

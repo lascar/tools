@@ -382,11 +382,22 @@ def push(root, target, force=False):
 
 
 def status_all():
+    opened = 0
     for row in worktrees():
         root = Path(row['worktree'])
         print('%s\n  %s' % (root, row.get('branch', 'detached')))
+        if root != MAIN:
+            roles = atelier.open_roles(root)
+            if roles:
+                opened += 1
+                titles = dict(atelier.ROLES)
+                print('  atelier OUVERT (onglets : %s)' % ', '.join(titles[role] for role in roles))
+            else:
+                print('  atelier fermé')
         result = git(root, 'status', '--short', '--untracked-files=all', check=False)
         print(result.stdout or ('  propre\n' if not result.returncode else '  inaccessible\n'))
+    print('%s atelier(s) de worktree actuellement ouvert(s).' % opened if opened else
+          'Aucun atelier de worktree actuellement ouvert.')
 
 
 def audit(root, target, days, author):
@@ -454,7 +465,7 @@ def parser():
         if name in ('worktree_open', 'worktree_reach'):
             q.add_argument('--no-update', action='store_true', help=f'Ouvrir sans fetch ni fusion de {REMOTE}/{BASE_BRANCH}')
     q = sub.add_parser('worktree_close')
-    q.add_argument('task', nargs='?', help='Tâche à fermer ; par défaut, le worktree courant')
+    q.add_argument('task', nargs='?', help='Tâche à fermer ; sans argument, le worktree courant ou tous les ateliers ouverts depuis le dépôt principal')
     q = sub.add_parser('worktree_switch')
     q.add_argument('task', nargs='?', help=f'Tâche à afficher ; sans argument, retour au terminal {BASE_BRANCH}')
     q = sub.add_parser('worktree_lance_master', help=f'Ouvrir la console et le serveur {BASE_BRANCH} dans deux onglets du terminal courant')
@@ -503,7 +514,10 @@ def main():
     if a.command == '_master_tab': return atelier.master_tab(root, a.role)
     if a.command == 'worktree_switch':
         return atelier.worktree_switch(existing_worktree(a.task) if a.task else None)
-    if a.command == 'worktree_close': return atelier.close(existing_worktree(a.task) if a.task else root)
+    if a.command == 'worktree_close':
+        if not a.task and root == MAIN:
+            return atelier.close_all()
+        return atelier.close(existing_worktree(a.task) if a.task else root)
     if a.command in ('relance_serveur', 'relance_console', 'relance_docker'):
         target = existing_worktree(a.task) if a.task else root
         return atelier.relaunch_runtime(target, 'console' if a.command == 'relance_console' else 'server', a.mode)

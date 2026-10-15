@@ -4,6 +4,7 @@ Retour au README des outils (../README.txt)
 
 L’index de la documentation se trouve désormais dans le README des outils (../README.txt).
 
+- Ateliers ouverts et fermeture (../README.txt).
 - Workflow quotidien (workflow.md).
 - Référence des scripts .sh (scripts.md).
 - Configuration de chaque variable .env (../env/README.txt).

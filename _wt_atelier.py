@@ -34,6 +34,23 @@ def directory(root):
     return STATE / 'ateliers' / key(root)
 
 
+def open_roles(root):
+    """Ne pas confondre un ancien état sur disque avec un onglet encore vivant."""
+    folder = directory(root)
+    state = read_json(folder / 'atelier.json', {})
+    generation = state.get('generation')
+    if not generation:
+        return []
+    roles = []
+    for role, _ in ROLES:
+        record = read_json(folder / (role + '.json'), {})
+        if (record.get('generation') == generation and record.get('worktree') == str(root)
+                and record.get('role') == role and record.get('status') != 'closed'
+                and record.get('start') and alive(record)):
+            roles.append(role)
+    return roles
+
+
 def terminal_target(root):
     folder = directory(root)
     state = read_json(folder / 'atelier.json', {})
@@ -674,6 +691,24 @@ def close_extra_shell(record, root):
             os.close(descriptor)
     except ProcessLookupError:
         return
+
+
+def close_all():
+    # Même détection que worktree_status : un fichier d'état ancien ne suffit pas.
+    targets = [Path(row['worktree']) for row in worktrees()
+               if Path(row['worktree']) != MAIN and open_roles(Path(row['worktree']))]
+    if not targets:
+        print('Aucun atelier de worktree actuellement ouvert.')
+        return
+    print('Fermeture de %s atelier(s) : %s.' % (len(targets), ', '.join(root.name for root in targets)), flush=True)
+    for index, root in enumerate(targets):
+        try:
+            close(root)
+        except ToolError as error:
+            # Une annulation ou un refus doit interrompre aussi la fermeture collective.
+            raise ToolError('Fermeture collective interrompue sur %s (%s/%s atelier(s) fermé(s)) : %s' %
+                            (root.name, index, len(targets), error)) from error
+    print('%s atelier(s) fermé(s) ; worktrees et fichiers conservés.' % len(targets))
 
 
 def close(root):

@@ -4,6 +4,7 @@
 
 L’index de la documentation se trouve désormais dans le [README des outils](../README.md).
 
+- [Ateliers ouverts et fermeture](../README.md#voir-les-ateliers-ouverts-et-les-fermer).
 - [Workflow quotidien](workflow.md).
 - [Référence des scripts .sh](scripts.md).
 - [Configuration de chaque variable .env](../env/README.md).

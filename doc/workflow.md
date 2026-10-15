@@ -210,17 +210,33 @@ push.sh development
 
 ## 11. Fermer puis reprendre
 
+Commence par afficher les ateliers ouverts :
+
+```bash
+worktree_status.sh
+```
+
+Le statut indique les onglets actifs de chaque atelier et le total ouvert. Il ignore les anciennes traces de processus terminés et les terminaux manuels non gérés.
+
 Enregistre les buffers de l’éditeur et termine les commandes que tu veux conserver. Depuis le worktree :
 
 ```bash
 worktree_close.sh
 ```
 
-Ou depuis le dépôt principal :
+Depuis le dépôt principal, pour fermer une seule tâche :
 
 ```bash
 worktree_close.sh 1234_ma_tache
 ```
+
+Pour fermer tous les ateliers ouverts, lance sans argument depuis le dépôt principal :
+
+```bash
+worktree_close.sh
+```
+
+Les ateliers sont fermés successivement avec les mêmes protections. Le premier refus interrompt la suite ; le message précise la tâche bloquante et le nombre de fermetures réussies. Les ateliers déjà fermés le restent. Enregistre les buffers avec `:wall` si nécessaire, traite le blocage signalé, puis relance depuis le principal pour fermer les ateliers restants. S’il n’y en a aucun, la commande le signale sans action. Le terminal et les services du dépôt principal sont conservés.
 
 La fermeture vérifie les activités, peut proposer l’arrêt coopératif de commandes, arrête les services de la tâche et crée une sauvegarde vérifiée dans WT_MAIN_ROOT/doc s’il reste du travail. Un refus ou un blocage laisse la fermeture suspendue ; aucun arrêt forcé n’est effectué.
 
