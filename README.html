@@ -24,6 +24,7 @@ nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
 <p>Documentation vérifiée le 15 octobre 2026 sur les fichiers <code>.sh</code> actuellement présents dans ce dossier : <strong>28 commandes et 2 fichiers de support Bash</strong>. Les versions Markdown servent de source ; chaque page existe aussi en HTML et TXT. Les liens du Markdown permettent de naviguer dans un lecteur Markdown ou sur une forge Git. Pour lire la documentation dans un navigateur local, ouvre la <a href="README.html">version HTML</a>.</p>
 <h2 id="lire-dans-lordre">Lire dans l’ordre</h2>
 <ul>
+<li><a href="doc/installation.html">Prérequis et installation</a> — préparer le poste, configurer les outils et vérifier l’installation.</li>
 <li><a href="doc/workflow.html">Workflow quotidien</a> — préparer le terminal, rejoindre une tâche, travailler, sauvegarder, restaurer et terminer.</li>
 <li><a href="doc/scripts.html">Référence des scripts</a> — arguments, effets et exemples des seuls <code>.sh</code> actuels.</li>
 <li><a href="env/README.html">Configuration du .env</a> — rôle et syntaxe de chaque variable, commandes du serveur et de la console.</li>
@@ -138,6 +139,6 @@ python3 -m compileall -q .
 <p>L’index canonique est ce README. La référence couvre uniquement les <code>.sh</code> actuels. Après une modification de commande ou de variable, actualise le workflow, sa fiche et la référence du .env, puis génère les formats HTML et TXT depuis la racine du projet :</p>
 <pre><code>python3 doc/tools-projet/render_worktree_docs.py --root doc/tools --pages README
 python3 doc/tools-projet/render_worktree_docs.py --root doc/tools/env --pages README
-python3 doc/tools-projet/render_worktree_docs.py --root doc/tools/doc --pages index workflow scripts
+python3 doc/tools-projet/render_worktree_docs.py --root doc/tools/doc --pages index installation workflow scripts
 </code></pre>
 </main></body></html>

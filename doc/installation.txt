@@ -1,0 +1,118 @@
+Prérequis et installation
+
+Retour au README des outils (../README.txt) · Workflow quotidien (workflow.md) · Configuration du .env (../env/README.txt) · Version TXT (installation.txt)
+
+Cette page prépare une nouvelle installation de la boîte à outils. Pour une installation existante, conserve le .env et recharge les fonctions Bash après une mise à jour.
+
+1. Préparer le poste
+
+Les ateliers utilisent un poste Linux avec Bash, une session graphique et GNOME Terminal. L’ouverture des onglets nécessite une session D-Bus accessible ; un terminal SSH seul ne suffit pas pour ce workflow graphique.
+
+Prévois les commandes suivantes dans le PATH :
+
+- git : dépôt du projet, branches et worktrees.
+- python3 : exécution des outils Python et lecture de la configuration.
+- bash : scripts et fonctions qui changent le dossier du terminal appelant.
+- gnome-terminal, gsettings et dconf : fenêtres, onglets et profils des ateliers.
+- vim : notes et sessions d’éditeur.
+- docker, avec le plugin docker compose : services applicatifs et tests.
+- L’agent utilisé dans les ateliers, accessible par la commande codex ou par le chemin défini dans CODEX_BIN.
+
+Installe ces composants avec les moyens habituels de ton poste. Python utilise ici sa bibliothèque standard : aucun environnement virtuel ni installation de paquets Python n’est nécessaire pour exécuter les outils.
+
+Contrôle leur présence depuis le terminal qui servira à ouvrir les ateliers :
+
+command -v git python3 bash gnome-terminal gsettings dconf vim docker
+python3 --version
+git --version
+docker compose version
+docker info
+command -v codex
+
+docker info doit réussir avec ton utilisateur courant. Si l’agent n’est pas dans le PATH de ce terminal, configure CODEX_BIN avec son chemin absolu. Prépare également son accès avant d’ouvrir un atelier.
+
+2. Placer les outils dans le projet
+
+Le dépôt principal du projet doit déjà être disponible localement, avec sa branche de base et ses accès Git opérationnels. Le dossier personnel doc/ n’est pas versionné dans le Git du projet : il peut donc être absent après un clonage de bo.facile. Les outils sont un dépôt Git indépendant, à cloner dans doc/tools/.
+
+Depuis la racine du dépôt principal, vérifie le contexte puis crée doc/ s’il manque :
+
+cd /chemin/vers/projet
+git rev-parse --show-toplevel
+git branch --show-current
+git status --short
+if [ ! -d doc ]; then
+    mkdir -p doc
+fi
+
+Clone ensuite les outils uniquement si doc/tools/ n’existe pas encore. L’URL SSH nécessite un accès GitHub configuré sur le poste :
+
+if [ ! -e doc/tools ]; then
+    git clone git@github.com:lascar/tools.git doc/tools
+else
+    echo "doc/tools existe déjà : vérifier son dépôt avant de continuer."
+fi
+
+Si le dossier existe déjà, conserve son contenu et son .env. Vérifie que la racine Git retournée correspond bien à doc/tools, et que le distant est celui des outils :
+
+git -C doc/tools rev-parse --show-toplevel
+git -C doc/tools remote -v
+ls doc/tools/.env.example doc/tools/worktree_shell.sh
+
+Si Git retourne la racine de bo.facile, le dossier n’est pas un dépôt indépendant. Corrige cette installation avant de continuer, sans écraser ses fichiers personnels. Le clonage des outils ne fournit pas les autres fichiers personnels de doc/ référencés par le profil ; prépare-les séparément si nécessaire.
+
+Le dossier parent du dépôt principal doit permettre la création des worktrees voisins. Les dossiers de stockage des états, sauvegardes et journaux doivent aussi être accessibles en écriture.
+
+3. Créer et adapter la configuration
+
+Pour une nouvelle installation uniquement, crée le fichier privé sans écraser une configuration existante :
+
+cp -n doc/tools/.env.example doc/tools/.env
+vim doc/tools/.env
+
+Le modèle est générique : ses noms de projet, sa branche main, ses images Python et ses commandes applicatives doivent être adaptés au projet réel. Pour bo.facile, pars du profil local approprié plutôt que d’utiliser les services de démonstration tels quels.
+
+Vérifie en priorité :
+
+- WT_MAIN_ROOT : racine réelle du dépôt principal ; un chemin relatif part du dossier des outils.
+- WT_BASE_BRANCH, WT_REMOTE, WT_FEATURE_PREFIX et WT_TICKET_PREFIX : conventions Git du projet.
+- WT_PROJECT_NAME, WT_WORKTREE_PREFIX, WT_STATE_DIR et WT_JOURNAL_DIR : noms et stockage local.
+- WT_PROFILE_FILES, WT_PROFILE_OVERRIDE, WT_AGENT_INSTRUCTIONS et WT_COPY_FILES : instructions personnelles et fichiers à préparer dans les tâches ; les fichiers référencés doivent être disponibles.
+- WT_COMPOSE_CONFIG et WT_CI_COMPOSE_CONFIG : définitions complètes des services, images, volumes et réseaux.
+- WT_SERVER_COMMANDS, WT_CONSOLE_COMMAND, WT_SERVER_PROBE et WT_CI_COMMAND : commandes réelles de l’application et des tests.
+- Les ports, réseaux externes, volumes, chemins montés et fichiers d’environnement attendus par le profil.
+
+Le .env des outils est distinct du fichier d’environnement applicatif transmis à Docker Compose. Les définitions Compose complètes permettent de générer la configuration Docker sans dépendre des fichiers Compose du projet. Si ces définitions ne sont pas renseignées, les fichiers configurés dans WT_COMPOSE_FILE et WT_CI_COMPOSE_FILE doivent exister.
+
+Le format est CLE=valeur ; les listes et objets sont du JSON. Ne fais jamais source doc/tools/.env : ce fichier est lu comme des données, sans expansion de variables ni exécution de commandes. Consulte la référence complète du .env (../env/README.txt) pour adapter chaque réglage. Le fichier réel reste privé et ne doit pas être publié.
+
+4. Préparer le runtime du projet
+
+Les outils pilotent Docker mais ne remplacent pas la préparation de l’application. Mets à disposition les images ou leurs contextes de construction, les dépendances, la configuration locale et les bases nécessaires au projet.
+
+Les réseaux déclarés comme externes dans le profil doivent exister avant le démarrage des services. Vérifie leurs noms dans WT_EXTERNAL_NETWORKS et dans les définitions Compose avant de les créer selon la procédure du projet.
+
+Les ports du principal et la plage des worktrees doivent être libres. Pour les tests, prépare aussi les éléments attendus par le profil CI : schémas, caches et services partagés éventuels.
+
+5. Charger les commandes dans Bash
+
+Depuis la racine du projet :
+
+export PATH="/chemin/vers/projet/doc/tools:$PATH"
+source /chemin/vers/projet/doc/tools/worktree_shell.sh
+
+Remplace le chemin par l’emplacement réel des outils. Pour retrouver ces commandes dans les nouveaux terminaux, ajoute ces deux lignes à ton ~/.bashrc. Recharge ensuite ce fichier ou ouvre un nouveau terminal Bash.
+
+Le PATH donne accès aux noms courts des scripts. Le chargement de worktree_shell.sh est également nécessaire pour les fonctions qui déplacent le terminal appelant, notamment change_branch.sh. Après une mise à jour des outils, recharge ce fichier dans les terminaux déjà ouverts.
+
+6. Vérifier l’installation
+
+Depuis la racine du projet, vérifie la configuration puis consulte l’état des ateliers :
+
+python3 doc/tools/_wt_config.py --check
+worktree_reach.sh --help
+worktree_status.sh
+
+Corrige toute erreur de configuration avant de lancer un atelier. Ces vérifications ne remplacent pas un démarrage applicatif : elles ne valident pas les identifiants de base de données ni la disponibilité de tous les services.
+
+L’installation est prête pour le workflow quotidien (workflow.md). Les commandes de travail s’exécutent depuis le dépôt principal ou le worktree de la tâche, pas depuis le dépôt Git imbriqué de doc/tools/.

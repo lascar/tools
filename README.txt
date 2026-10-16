@@ -6,6 +6,7 @@ Documentation vérifiée le 15 octobre 2026 sur les fichiers .sh actuellement pr
 
 Lire dans l’ordre
 
+- Prérequis et installation (doc/installation.md) — préparer le poste, configurer les outils et vérifier l’installation.
 - Workflow quotidien (doc/workflow.md) — préparer le terminal, rejoindre une tâche, travailler, sauvegarder, restaurer et terminer.
 - Référence des scripts (doc/scripts.md) — arguments, effets et exemples des seuls .sh actuels.
 - Configuration du .env (env/README.txt) — rôle et syntaxe de chaque variable, commandes du serveur et de la console.
@@ -149,4 +150,4 @@ L’index canonique est ce README. La référence couvre uniquement les .sh actu
 
 python3 doc/tools-projet/render_worktree_docs.py --root doc/tools --pages README
 python3 doc/tools-projet/render_worktree_docs.py --root doc/tools/env --pages README
-python3 doc/tools-projet/render_worktree_docs.py --root doc/tools/doc --pages index workflow scripts
+python3 doc/tools-projet/render_worktree_docs.py --root doc/tools/doc --pages index installation workflow scripts

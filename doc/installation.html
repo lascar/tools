@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Prérequis et installation</title><style>
+:root { color-scheme: light dark; }
+html { background: #fff; color: #24292f; }
+body { max-width: 1060px; margin: auto; padding: 24px; font: 17px/1.65 system-ui, sans-serif; overflow-wrap: anywhere; }
+a, a:visited { color: #075bb5; text-underline-offset: .18em; }
+a:focus-visible { outline: 3px solid #a75a00; outline-offset: 4px; }
+h1,h2,h3 { line-height: 1.3; }
+pre { padding: 16px; overflow: auto; background: #f3f5f7; border: 1px solid #d0d7de; border-radius: 6px; }
+code { font-family: ui-monospace, monospace; font-size: .88em; }
+pre code { white-space: pre; overflow-wrap: normal; }
+blockquote { border-left: 4px solid #d0d7de; margin-left: 0; padding-left: 20px; }
+nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
+@media (prefers-color-scheme: dark) {
+ html { color: #e6edf3; background: #0d1117; }
+ a,a:visited { color: #79c0ff; }
+ pre { background: #161b22; }
+ pre,blockquote,nav { border-color: #3d444d; }
+}
+@media (max-width: 600px) { body { padding: 16px; font-size: 16px; } }
+</style></head><body><nav><a href="installation.md">Version Markdown</a></nav><main>
+<h1 id="prerequis-et-installation">Prérequis et installation</h1>
+<p><a href="../README.html">Retour au README des outils</a> · <a href="workflow.html">Workflow quotidien</a> · <a href="../env/README.html">Configuration du .env</a> · <a href="installation.txt">Version TXT</a></p>
+<p>Cette page prépare une nouvelle installation de la boîte à outils. Pour une installation existante, conserve le <code>.env</code> et recharge les fonctions Bash après une mise à jour.</p>
+<h2 id="1-preparer-le-poste">1. Préparer le poste</h2>
+<p>Les ateliers utilisent un poste Linux avec Bash, une session graphique et GNOME Terminal. L’ouverture des onglets nécessite une session D-Bus accessible ; un terminal SSH seul ne suffit pas pour ce workflow graphique.</p>
+<p>Prévois les commandes suivantes dans le <code>PATH</code> :</p>
+<ul>
+<li><code>git</code> : dépôt du projet, branches et worktrees.</li>
+<li><code>python3</code> : exécution des outils Python et lecture de la configuration.</li>
+<li><code>bash</code> : scripts et fonctions qui changent le dossier du terminal appelant.</li>
+<li><code>gnome-terminal</code>, <code>gsettings</code> et <code>dconf</code> : fenêtres, onglets et profils des ateliers.</li>
+<li><code>vim</code> : notes et sessions d’éditeur.</li>
+<li><code>docker</code>, avec le plugin <code>docker compose</code> : services applicatifs et tests.</li>
+<li>L’agent utilisé dans les ateliers, accessible par la commande <code>codex</code> ou par le chemin défini dans <code>CODEX_BIN</code>.</li>
+</ul>
+<p>Installe ces composants avec les moyens habituels de ton poste. Python utilise ici sa bibliothèque standard : aucun environnement virtuel ni installation de paquets Python n’est nécessaire pour exécuter les outils.</p>
+<p>Contrôle leur présence depuis le terminal qui servira à ouvrir les ateliers :</p>
+<pre><code>command -v git python3 bash gnome-terminal gsettings dconf vim docker
+python3 --version
+git --version
+docker compose version
+docker info
+command -v codex
+</code></pre>
+<p><code>docker info</code> doit réussir avec ton utilisateur courant. Si l’agent n’est pas dans le <code>PATH</code> de ce terminal, configure <code>CODEX_BIN</code> avec son chemin absolu. Prépare également son accès avant d’ouvrir un atelier.</p>
+<h2 id="2-placer-les-outils-dans-le-projet">2. Placer les outils dans le projet</h2>
+<p>Le dépôt principal du projet doit déjà être disponible localement, avec sa branche de base et ses accès Git opérationnels. Le dossier personnel <code>doc/</code> n’est pas versionné dans le Git du projet : il peut donc être absent après un clonage de bo.facile. Les outils sont un dépôt Git indépendant, à cloner dans <code>doc/tools/</code>.</p>
+<p>Depuis la racine du dépôt principal, vérifie le contexte puis crée <code>doc/</code> s’il manque :</p>
+<pre><code>cd /chemin/vers/projet
+git rev-parse --show-toplevel
+git branch --show-current
+git status --short
+if [ ! -d doc ]; then
+    mkdir -p doc
+fi
+</code></pre>
+<p>Clone ensuite les outils uniquement si <code>doc/tools/</code> n’existe pas encore. L’URL SSH nécessite un accès GitHub configuré sur le poste :</p>
+<pre><code>if [ ! -e doc/tools ]; then
+    git clone git@github.com:lascar/tools.git doc/tools
+else
+    echo &quot;doc/tools existe déjà : vérifier son dépôt avant de continuer.&quot;
+fi
+</code></pre>
+<p>Si le dossier existe déjà, conserve son contenu et son <code>.env</code>. Vérifie que la racine Git retournée correspond bien à <code>doc/tools</code>, et que le distant est celui des outils :</p>
+<pre><code>git -C doc/tools rev-parse --show-toplevel
+git -C doc/tools remote -v
+ls doc/tools/.env.example doc/tools/worktree_shell.sh
+</code></pre>
+<p>Si Git retourne la racine de bo.facile, le dossier n’est pas un dépôt indépendant. Corrige cette installation avant de continuer, sans écraser ses fichiers personnels. Le clonage des outils ne fournit pas les autres fichiers personnels de <code>doc/</code> référencés par le profil ; prépare-les séparément si nécessaire.</p>
+<p>Le dossier parent du dépôt principal doit permettre la création des worktrees voisins. Les dossiers de stockage des états, sauvegardes et journaux doivent aussi être accessibles en écriture.</p>
+<h2 id="3-creer-et-adapter-la-configuration">3. Créer et adapter la configuration</h2>
+<p>Pour une nouvelle installation uniquement, crée le fichier privé sans écraser une configuration existante :</p>
+<pre><code>cp -n doc/tools/.env.example doc/tools/.env
+vim doc/tools/.env
+</code></pre>
+<p>Le modèle est générique : ses noms de projet, sa branche <code>main</code>, ses images Python et ses commandes applicatives doivent être adaptés au projet réel. Pour bo.facile, pars du profil local approprié plutôt que d’utiliser les services de démonstration tels quels.</p>
+<p>Vérifie en priorité :</p>
+<ul>
+<li><code>WT_MAIN_ROOT</code> : racine réelle du dépôt principal ; un chemin relatif part du dossier des outils.</li>
+<li><code>WT_BASE_BRANCH</code>, <code>WT_REMOTE</code>, <code>WT_FEATURE_PREFIX</code> et <code>WT_TICKET_PREFIX</code> : conventions Git du projet.</li>
+<li><code>WT_PROJECT_NAME</code>, <code>WT_WORKTREE_PREFIX</code>, <code>WT_STATE_DIR</code> et <code>WT_JOURNAL_DIR</code> : noms et stockage local.</li>
+<li><code>WT_PROFILE_FILES</code>, <code>WT_PROFILE_OVERRIDE</code>, <code>WT_AGENT_INSTRUCTIONS</code> et <code>WT_COPY_FILES</code> : instructions personnelles et fichiers à préparer dans les tâches ; les fichiers référencés doivent être disponibles.</li>
+<li><code>WT_COMPOSE_CONFIG</code> et <code>WT_CI_COMPOSE_CONFIG</code> : définitions complètes des services, images, volumes et réseaux.</li>
+<li><code>WT_SERVER_COMMANDS</code>, <code>WT_CONSOLE_COMMAND</code>, <code>WT_SERVER_PROBE</code> et <code>WT_CI_COMMAND</code> : commandes réelles de l’application et des tests.</li>
+<li>Les ports, réseaux externes, volumes, chemins montés et fichiers d’environnement attendus par le profil.</li>
+</ul>
+<p>Le <code>.env</code> des outils est distinct du fichier d’environnement applicatif transmis à Docker Compose. Les définitions Compose complètes permettent de générer la configuration Docker sans dépendre des fichiers Compose du projet. Si ces définitions ne sont pas renseignées, les fichiers configurés dans <code>WT_COMPOSE_FILE</code> et <code>WT_CI_COMPOSE_FILE</code> doivent exister.</p>
+<p>Le format est <code>CLE=valeur</code> ; les listes et objets sont du JSON. Ne fais jamais <code>source doc/tools/.env</code> : ce fichier est lu comme des données, sans expansion de variables ni exécution de commandes. Consulte la <a href="../env/README.html">référence complète du .env</a> pour adapter chaque réglage. Le fichier réel reste privé et ne doit pas être publié.</p>
+<h2 id="4-preparer-le-runtime-du-projet">4. Préparer le runtime du projet</h2>
+<p>Les outils pilotent Docker mais ne remplacent pas la préparation de l’application. Mets à disposition les images ou leurs contextes de construction, les dépendances, la configuration locale et les bases nécessaires au projet.</p>
+<p>Les réseaux déclarés comme externes dans le profil doivent exister avant le démarrage des services. Vérifie leurs noms dans <code>WT_EXTERNAL_NETWORKS</code> et dans les définitions Compose avant de les créer selon la procédure du projet.</p>
+<p>Les ports du principal et la plage des worktrees doivent être libres. Pour les tests, prépare aussi les éléments attendus par le profil CI : schémas, caches et services partagés éventuels.</p>
+<h2 id="5-charger-les-commandes-dans-bash">5. Charger les commandes dans Bash</h2>
+<p>Depuis la racine du projet :</p>
+<pre><code>export PATH=&quot;/chemin/vers/projet/doc/tools:$PATH&quot;
+source /chemin/vers/projet/doc/tools/worktree_shell.sh
+</code></pre>
+<p>Remplace le chemin par l’emplacement réel des outils. Pour retrouver ces commandes dans les nouveaux terminaux, ajoute ces deux lignes à ton <code>~/.bashrc</code>. Recharge ensuite ce fichier ou ouvre un nouveau terminal Bash.</p>
+<p>Le <code>PATH</code> donne accès aux noms courts des scripts. Le chargement de <code>worktree_shell.sh</code> est également nécessaire pour les fonctions qui déplacent le terminal appelant, notamment <code>change_branch.sh</code>. Après une mise à jour des outils, recharge ce fichier dans les terminaux déjà ouverts.</p>
+<h2 id="6-verifier-linstallation">6. Vérifier l’installation</h2>
+<p>Depuis la racine du projet, vérifie la configuration puis consulte l’état des ateliers :</p>
+<pre><code>python3 doc/tools/_wt_config.py --check
+worktree_reach.sh --help
+worktree_status.sh
+</code></pre>
+<p>Corrige toute erreur de configuration avant de lancer un atelier. Ces vérifications ne remplacent pas un démarrage applicatif : elles ne valident pas les identifiants de base de données ni la disponibilité de tous les services.</p>
+<p>L’installation est prête pour le <a href="workflow.html">workflow quotidien</a>. Les commandes de travail s’exécutent depuis le dépôt principal ou le worktree de la tâche, pas depuis le dépôt Git imbriqué de <code>doc/tools/</code>.</p>
+</main></body></html>
