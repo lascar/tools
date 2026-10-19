@@ -71,6 +71,7 @@ worktree_reach.sh
 </code></pre>
 <p>Fonction Bash à charger avec <code>worktree_shell.sh</code>. Vise une branche déjà rattachée à un worktree, sans créer de branche ni de worktree.</p>
 <p>Contrôle la propreté du départ, du principal et de la cible ; refuse l’activité détectée dans la cible ; actualise la branche principale par pull en avance rapide ; déplace le terminal dans la tâche puis y fusionne la base. Le principal doit déjà être sur sa branche principale. Aucun atelier ni serveur n’est lancé.</p>
+<p>Pour un processus de ton utilisateur dont le répertoire courant est protégé, la vérification utilise <code>sudo readlink</code> uniquement sur <code>/proc/&lt;PID&gt;/cwd</code> et peut demander ton mot de passe. Un processus extérieur au worktree ne bloque pas la commande ; une activité dans le worktree ou une vérification impossible reste bloquante.</p>
 <p>Un refus préalable garde le dossier initial. Un conflit laisse le terminal dans la tâche. L’exécutable seul indique comment charger la fonction ; <code>--help</code> reste disponible directement.</p>
 <h2 id="sauvegardes-et-rapports">Sauvegardes et rapports</h2>
 <h3 id="patchsh">patch.sh</h3>
@@ -100,7 +101,7 @@ is_any_patch.sh done
 <h3 id="desc_gitsh">desc_git.sh</h3>
 <pre><code>desc_git.sh [tâche]
 </code></pre>
-<p>Décrit la tâche nommée, dont le worktree doit exister ; sans argument, utilise le worktree courant. Écrit <code>&lt;tâche&gt;_git.txt</code> dans son dossier de documentation configuré.</p>
+<p>Décrit la tâche nommée, dont le worktree doit exister ; sans argument, utilise le worktree courant. Écrit <code>&lt;tâche&gt;_git.txt</code> dans le dossier de documentation central <code>WT_MAIN_ROOT/WT_DOCUMENTS_DIR</code>, y compris depuis un worktree.</p>
 <p>Le rapport commence par les fichiers modifiés, triés et dédoublonnés, puis détaille les commits accessibles depuis HEAD dont le sujet commence par le nom exact de tâche suivi d’un espace, de deux-points ou de la fin du sujet. Il inclut les commits déjà intégrés dans la branche principale, les suppressions et les anciens/nouveaux chemins de renommage. Les fusions utilisent les différences combinées pour limiter les fichiers importés.</p>
 <p>Ne remplace pas les notes de la tâche. Ne décrit pas les modifications locales non committées. Aucun checkout, fetch ou merge.</p>
 <h3 id="worktree_check_conflictssh">worktree_check_conflicts.sh</h3>

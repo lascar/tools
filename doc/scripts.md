@@ -100,6 +100,8 @@ Fonction Bash à charger avec `worktree_shell.sh`. Vise une branche déjà ratta
 
 Contrôle la propreté du départ, du principal et de la cible ; refuse l’activité détectée dans la cible ; actualise la branche principale par pull en avance rapide ; déplace le terminal dans la tâche puis y fusionne la base. Le principal doit déjà être sur sa branche principale. Aucun atelier ni serveur n’est lancé.
 
+Pour un processus de ton utilisateur dont le répertoire courant est protégé, la vérification utilise `sudo readlink` uniquement sur `/proc/<PID>/cwd` et peut demander ton mot de passe. Un processus extérieur au worktree ne bloque pas la commande ; une activité dans le worktree ou une vérification impossible reste bloquante.
+
 Un refus préalable garde le dossier initial. Un conflit laisse le terminal dans la tâche. L’exécutable seul indique comment charger la fonction ; `--help` reste disponible directement.
 
 ## Sauvegardes et rapports
@@ -150,7 +152,7 @@ is_any_patch.sh done
 desc_git.sh [tâche]
 ```
 
-Décrit la tâche nommée, dont le worktree doit exister ; sans argument, utilise le worktree courant. Écrit `<tâche>_git.txt` dans son dossier de documentation configuré.
+Décrit la tâche nommée, dont le worktree doit exister ; sans argument, utilise le worktree courant. Écrit `<tâche>_git.txt` dans le dossier de documentation central `WT_MAIN_ROOT/WT_DOCUMENTS_DIR`, y compris depuis un worktree.
 
 Le rapport commence par les fichiers modifiés, triés et dédoublonnés, puis détaille les commits accessibles depuis HEAD dont le sujet commence par le nom exact de tâche suivi d’un espace, de deux-points ou de la fin du sujet. Il inclut les commits déjà intégrés dans la branche principale, les suppressions et les anciens/nouveaux chemins de renommage. Les fusions utilisent les différences combinées pour limiter les fichiers importés.
 

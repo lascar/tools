@@ -334,7 +334,7 @@ def describe(root):
     else:
         text += 'Aucun commit dont le sujet commence par le nom de cette tâche.\n'
     # Conserver un rapport dédié pour ne pas écraser les notes de la tâche.
-    dest = root / setting('DOCUMENTS_DIR', 'doc') / (task + '_git.txt')
+    dest = MAIN / setting('DOCUMENTS_DIR', 'doc') / (task + '_git.txt')
     dest.parent.mkdir(exist_ok=True)
     dest.write_text(text)
     print(dest)

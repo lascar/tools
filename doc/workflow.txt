@@ -194,7 +194,7 @@ Les ateliers sont fermés successivement avec les mêmes protections. Le premier
 
 La fermeture vérifie les activités, peut proposer l’arrêt coopératif de commandes, arrête les services de la tâche et crée une sauvegarde vérifiée dans WT_MAIN_ROOT/doc s’il reste du travail. Un refus ou un blocage laisse la fermeture suspendue ; aucun arrêt forcé n’est effectué.
 
-Le worktree, la branche, les documents et le journal central restent disponibles. La fonction Bash revient au dépôt principal si le shell appelant est conservé ; un terminal supplémentaire reconnu comme appartenant à l’atelier peut être fermé.
+Le worktree, la branche, les documents et le journal central restent disponibles. Le dossier de documents du worktree est un lien symbolique vers le dossier central du dépôt principal : les notes et rapports écrits depuis un atelier y sont enregistrés directement. La fonction Bash revient au dépôt principal si le shell appelant est conservé ; un terminal supplémentaire reconnu comme appartenant à l’atelier peut être fermé.
 
 Pour reprendre :
 

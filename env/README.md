@@ -181,7 +181,7 @@ WT_STATE_DIR=doc/docker-worktrees
 
 ### WT_DOCUMENTS_DIR
 
-Dossier relatif à chaque dépôt pour les notes, rapports Git et le lien vers les outils. Ne change pas le stockage des patchs : WT_MAIN_ROOT/doc.
+Nom du dossier de documents central dans WT_MAIN_ROOT. Dans chaque worktree, ce chemin est un lien symbolique vers le dossier central ; les notes et rapports ne sont plus copiés. Codex reçoit un accès en écriture explicite à ce dossier. Les anciens dossiers sont sauvegardés avant remplacement ; la version la plus récente par date de modification est conservée en cas de divergence, avec sauvegarde des deux versions. Des dates identiques ou des types incompatibles nécessitent une décision. Ne change pas le stockage des patchs : WT_MAIN_ROOT/doc.
 
 Exemple générique (syntaxe `.env`) :
 
@@ -461,7 +461,7 @@ WT_PORT_START=3002
 
 ### WT_PORT_END
 
-Dernier port public attribuable aux tâches, inclus. Un worktree conserve son ancien port tant qu’il reste dans cette plage ; un port occupé provoque un refus.
+Dernier port public attribuable aux tâches, inclus. Un worktree conserve son ancien port s’il est disponible. Sinon, les ports suivants sont essayés, puis ceux du début de la plage. Les ports réservés ou occupés sont ignorés, ainsi que les ports dont le port de débogage associé est indisponible en mode debug. Un refus n’intervient que si aucun port utilisable ne reste dans la plage.
 
 Exemple générique (syntaxe `.env`) :
 

@@ -254,9 +254,12 @@ def choose_port(root, mode):
                     legacy_ports.update(int(b['HostPort']) for b in bindings or [])
     old = read_state(root)
     preferred = old.get('port')
-    # Un worktree deja utilise conserve son adresse apres arret. Ne pas
-    # choisir silencieusement un autre port si son ancien port est occupe.
-    candidates = [preferred] if preferred in PORTS else list(PORTS)
+    # Garder l'adresse si possible, puis chercher les ports suivants et
+    # revenir au debut de la plage pour ne pas refuser une place libre.
+    candidates = list(PORTS)
+    if preferred in PORTS:
+        offset = candidates.index(preferred)
+        candidates = candidates[offset:] + candidates[:offset]
     reserved = {s['port'] for s in all_states() if s.get('worktree') != str(root)
                 and s.get('status') in ('active', 'activating') and s.get('port') in PORTS}
     for port in candidates:
@@ -266,10 +269,6 @@ def choose_port(root, mode):
                (published.get(p) == {DOCKER_PROJECT} and p in legacy_ports) or
                (p not in published and port_available(p)) for p in ports):
             return port
-    if preferred in PORTS:
-        raise ToolError('Le port %s de ce worktree est occupé ou réservé '
-                        '(ou son port de débogage est indisponible). '
-                        'Libère-le avant de relancer ; aucun autre port attribué.' % preferred)
     raise ToolError('Aucun port libre dans la plage configurée ; arrête un service de tâche avant d’en ouvrir un autre.')
 
 
@@ -425,6 +424,8 @@ def stop(root, infrastructure=False):
         if root == MAIN and any(p != MAIN for _, p, _, _ in app_mounts(True, DOCKER_PROJECT)):
             raise ToolError('Ancien runtime associé à une tâche ; utilise son worktree pour l’arrêter.')
         if state.get('project') == project_for(root):
+            print('Arrêt des services de %s (port attribué : %s).' %
+                  (root.name, state.get('port', 'inconnu')), flush=True)
             run(command_for(state) + ['stop', *APPS, PROXY_SERVICE])
         elif root == MAIN:
             run(base() + ['stop', *APPS, PROXY_SERVICE])

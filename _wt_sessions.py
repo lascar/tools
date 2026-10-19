@@ -62,10 +62,83 @@ def tmp_mount(root):
              'bind': {'create_host_path': False}}]
 
 
+def shared_documents(root):
+    root, _, _ = context(root, task=True)
+    source = MAIN / setting('DOCUMENTS_DIR', 'doc')
+    target = root / setting('DOCUMENTS_DIR', 'doc')
+    with locked(STATE / 'documents.lock', wait=True):
+        source.mkdir(parents=True, exist_ok=True)
+        # Une règle doc/ ignore un dossier, mais pas le lien qui le remplace.
+        exclude = Path(value(root, 'rev-parse', '--path-format=absolute', '--git-path', 'info/exclude'))
+        pattern = '/' + setting('DOCUMENTS_DIR', 'doc').strip('/')
+        text = exclude.read_text() if exclude.exists() else ''
+        if pattern not in text.splitlines():
+            exclude.parent.mkdir(parents=True, exist_ok=True)
+            with exclude.open('a') as stream:
+                stream.write(('\n' if text and not text.endswith('\n') else '') + pattern + '\n')
+        if target.is_symlink():
+            link_or_check(source, target)
+            return
+        if git(root, 'ls-files', '--', setting('DOCUMENTS_DIR', 'doc')).stdout:
+            raise ToolError('Documents suivis par Git ; partage refusé : %s' % target)
+        if target.exists():
+            if not target.is_dir() or os.path.ismount(target):
+                raise ToolError('Dossier de documents local à examiner : %s' % target)
+            # Vérifier tous les conflits avant toute copie. Les liens existants
+            # sont comparés par cible sans parcourir leurs répertoires.
+            missing, newer = [], []
+            for folder, dirs, files in os.walk(target, followlinks=False):
+                for name in list(dirs) + files:
+                    local = Path(folder) / name
+                    dest = source / local.relative_to(target)
+                    if local.is_symlink():
+                        if name in dirs: dirs.remove(name)
+                        same = dest.resolve() == local.resolve()
+                    elif local.is_dir():
+                        same = dest.is_dir() and not dest.is_symlink()
+                    else:
+                        same = dest.is_file() and not dest.is_symlink() and dest.read_bytes() == local.read_bytes()
+                    if dest.exists() or dest.is_symlink():
+                        if not same:
+                            if (local.is_file() and not local.is_symlink() and
+                                    dest.is_file() and not dest.is_symlink() and
+                                    local.stat().st_mtime_ns != dest.stat().st_mtime_ns):
+                                if local.stat().st_mtime_ns > dest.stat().st_mtime_ns:
+                                    newer.append((local, dest))
+                            else:
+                                raise ToolError('Documents différents, migration à décider : %s et %s' % (local, dest))
+                    else:
+                        missing.append((local, dest))
+            archive = source / 'worktree-doc-backups' / root.name
+            archive.mkdir(parents=True, exist_ok=True)
+            backup = Path(tempfile.mkdtemp(prefix='doc-', dir=archive))
+            # La version la plus récente devient commune. Conserver aussi
+            # l'ancienne version centrale avant de la remplacer.
+            for local, dest in newer:
+                previous = backup / 'central' / local.relative_to(target)
+                previous.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(dest, previous)
+                shutil.copy2(local, dest)
+                print('Version locale plus récente conservée : %s' % dest)
+            for local, dest in missing:
+                if local.is_symlink():
+                    dest.symlink_to(local.resolve(), target_is_directory=local.is_dir())
+                elif local.is_dir():
+                    dest.mkdir(exist_ok=True)
+                else:
+                    shutil.copy2(local, dest)
+            # Conserver le dossier original complet avant de le remplacer.
+            backup = backup / 'doc'
+            target.rename(backup)
+            print('Documents locaux sauvegardés : %s' % backup)
+        target.symlink_to(source, target_is_directory=True)
+
+
 def prepare(root, new=False):
     root, branch, task = context(root, task=True)
-    (root / setting('DOCUMENTS_DIR', 'doc')).mkdir(exist_ok=True)
-    link_or_check(TOOLS, root / setting('DOCUMENTS_DIR', 'doc') / 'tools')
+    shared_documents(root)
+    if (MAIN / setting('DOCUMENTS_DIR', 'doc') / 'tools').resolve() != TOOLS:
+        link_or_check(TOOLS, MAIN / setting('DOCUMENTS_DIR', 'doc') / 'tools')
     for profile in setting_json('PROFILE_FILES', []):
         link_or_check(MAIN / profile, root / profile)
     override = root / 'AGENTS.override.md'
@@ -92,11 +165,6 @@ def prepare(root, new=False):
         source, dest = MAIN / relative, root / relative
         if source.is_file() and not dest.exists():
             shutil.copy2(source, dest); dest.chmod(0o600)
-    # Reprendre seulement les notes de cette tâche, pas tout doc/.
-    for source in (MAIN / setting('DOCUMENTS_DIR', 'doc')).glob(task + '*'):
-        if source.is_file() and not source.name.endswith(('~', '.swp')):
-            dest = root / setting('DOCUMENTS_DIR', 'doc') / source.name
-            if not dest.exists(): shutil.copy2(source, dest)
     for suffix in ('', '_doc'):
         source = MAIN / ('vimsession_' + task + suffix)
         dest = root / source.name
@@ -176,8 +244,11 @@ def codex_command(root, extra=(), new=False):
         session_id = meta.get('session_id') or meta.get('id')
         if not session_id: raise ToolError('Identifiant de session absent.')
         args += ['resume', session_id]
-    args += ['-C', str(root), '--add-dir', str(MAIN / setting('JOURNAL_DIR', 'sessions_codex')), *extra]
+    args += ['-C', str(root), '--add-dir', str(MAIN / setting('JOURNAL_DIR', 'sessions_codex')),
+             '--add-dir', str(MAIN / setting('DOCUMENTS_DIR', 'doc')), *extra]
     args += [setting('AGENT_INSTRUCTIONS', 'Lis AGENTS.md.') + ' Reprends le journal central ' +
              str(MAIN / setting('JOURNAL_DIR', 'sessions_codex') / (task + '.jsont')) +
-             ' et tiens-le à jour. Le code et Git restent dans ce worktree.']
+             ' et tiens-le à jour. Écris les documents exclusivement dans ' +
+             str(MAIN / setting('DOCUMENTS_DIR', 'doc')) +
+             ' ; doc dans le worktree doit pointer vers ce dossier central. Le code et Git restent dans ce worktree.']
     return args

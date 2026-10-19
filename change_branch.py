@@ -11,6 +11,7 @@ import sys
 from _wt_common import MAIN, STATE, ToolError, context, git, key, locked, read_json, run, task_branch, value, worktrees, BASE_BRANCH, WORKTREE_LABEL
 import _wt_atelier as atelier
 import _wt_docker as runtime
+from _wt_remove import process_directory
 
 
 def target_for(task):
@@ -74,8 +75,11 @@ def idle(root):
         try:
             if proc.stat().st_uid != os.getuid():
                 continue
-            cwd = (proc / 'cwd').resolve(strict=True)
-            if cwd != root and root not in cwd.parents:
+            # Reutiliser la lecture privilegiee ciblee des processus proteges.
+            # stdout reste reserve au chemin retourne a la fonction Bash.
+            with contextlib.redirect_stdout(sys.stderr):
+                cwd = process_directory(proc)
+            if cwd is None or (cwd != root and root not in cwd.parents):
                 continue
             name = (proc / 'comm').read_text().strip()
             if name not in ('bash', 'sh', 'dash', 'zsh', 'fish'):

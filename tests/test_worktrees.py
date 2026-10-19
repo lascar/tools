@@ -1086,7 +1086,7 @@ class WorktreeTests(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(c.ToolError):
                 backup.pending(task=invalid)
 
-    def test_desc_git_named_task_from_main_writes_report_in_target(self):
+    def test_desc_git_named_task_from_main_writes_report_in_central_doc(self):
         (self.root / 'tracked.txt').write_text('committed task change\n')
         self.git(self.root, 'add', 'tracked.txt')
         self.git(self.root, 'commit', '-m', '1234_réglage : task report fixture')
@@ -1095,11 +1095,11 @@ class WorktreeTests(unittest.TestCase):
         result = subprocess.run([str(TOOLS / 'desc_git.sh'), '1234_réglage'],
                                 cwd=self.main, env=env, capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
-        report = self.root / 'doc/1234_réglage_git.txt'
+        report = self.main / 'doc/1234_réglage_git.txt'
         self.assertEqual(result.stdout.strip(), str(report))
         self.assertIn('Branche : feature/1234_réglage', report.read_text())
         self.assertIn('+committed task change', report.read_text())
-        self.assertFalse((self.main / 'doc/1234_réglage_git.txt').exists())
+        self.assertFalse((self.root / 'doc/1234_réglage_git.txt').exists())
         self.assertEqual(self.git(self.main, 'branch', '--show-current'), 'master')
         self.assertEqual(self.git(self.root, 'rev-parse', 'HEAD'), before)
 
@@ -1113,7 +1113,7 @@ class WorktreeTests(unittest.TestCase):
         self.git(self.main, 'merge', '--ff-only', 'feature/1234_réglage')
         self.assertEqual(self.git(self.root, 'merge-base', 'master', 'HEAD'), self.git(self.root, 'rev-parse', 'HEAD'))
         cli.describe(self.root)
-        report = (self.root / 'doc/1234_réglage_git.txt').read_text()
+        report = (self.main / 'doc/1234_réglage_git.txt').read_text()
         self.assertTrue(report.startswith('Fichiers modifiés dans les commits de la tâche :\nnew file.txt\ntracked.txt\n\n'))
         self.assertIn('Commits sélectionnés : 2', report)
         self.assertIn('1234_réglage : first change', report)
@@ -1127,7 +1127,7 @@ class WorktreeTests(unittest.TestCase):
                               ('fix: mention 1234_réglage', '')]:
             self.git(self.root, 'commit', '--allow-empty', '-m', subject, '-m', body)
         cli.describe(self.root)
-        report = (self.root / 'doc/1234_réglage_git.txt').read_text()
+        report = (self.main / 'doc/1234_réglage_git.txt').read_text()
         self.assertIn('Commits sélectionnés : 0', report)
         self.assertIn('Aucun commit dont le sujet commence', report)
         self.assertNotIn('another task', report)
@@ -1140,7 +1140,7 @@ class WorktreeTests(unittest.TestCase):
         self.git(self.root, 'add', 'renamed file.txt')
         self.git(self.root, 'commit', '-m', '1234_réglage : update renamed file')
         cli.describe(self.root)
-        report = (self.root / 'doc/1234_réglage_git.txt').read_text()
+        report = (self.main / 'doc/1234_réglage_git.txt').read_text()
         self.assertEqual(report.split('\n\n', 1)[0], 'Fichiers modifiés dans les commits de la tâche :\ndelete.txt\nrenamed file.txt\ntracked.txt')
         self.assertIn('deleted file mode', report)
         self.assertIn('+modified again', report)
@@ -1151,7 +1151,7 @@ class WorktreeTests(unittest.TestCase):
             os.chdir(self.root)
             with patch.object(sys, 'argv', ['worktree_tools.py', 'desc_git']):
                 cli.main()
-            self.assertTrue((self.root / 'doc/1234_réglage_git.txt').is_file())
+            self.assertTrue((self.main / 'doc/1234_réglage_git.txt').is_file())
             self.assertEqual(Path.cwd(), self.root)
         finally:
             os.chdir(previous)
@@ -1169,7 +1169,7 @@ class WorktreeTests(unittest.TestCase):
             with patch.object(sys, 'argv', ['worktree_tools.py', 'desc_git', '1234_réglage']):
                 with self.assertRaisesRegex(c.ToolError, 'verrouillé'):
                     cli.main()
-            self.assertFalse((self.root / 'doc/1234_réglage_git.txt').exists())
+            self.assertFalse((self.main / 'doc/1234_réglage_git.txt').exists())
         finally:
             os.chdir(previous)
 
@@ -1309,12 +1309,71 @@ class WorktreeTests(unittest.TestCase):
         (self.main / '.env').write_text('fixture')
         sessions.prepare(self.root)
         sessions.prepare(self.root)
-        self.assertTrue((self.root / 'doc/tools').is_symlink())
+        self.assertTrue((self.root / 'doc').is_symlink())
+        self.assertEqual((self.root / 'doc').resolve(), self.main / 'doc')
         self.assertFalse((self.root / 'sessions_codex').exists())
         self.assertTrue((self.main / 'sessions_codex/1234_réglage.jsont').exists())
         self.assertEqual((self.root / '.env').stat().st_mode & 0o777, 0o600)
         self.assertEqual(os.readlink(self.root / 'tmp'), '../project/tmp')
         self.assertEqual((self.root / 'tmp').resolve(), self.main / 'tmp')
+
+    def test_shared_documents_migrates_unique_files_and_preserves_original(self):
+        (self.root / 'doc/nested').mkdir(parents=True)
+        (self.root / 'doc/nested/local.txt').write_text('local notes')
+        (self.root / 'doc/tools').symlink_to(TOOLS, target_is_directory=True)
+        sessions.shared_documents(self.root)
+        sessions.shared_documents(self.root)
+        self.assertEqual((self.root / 'doc').resolve(), self.main / 'doc')
+        self.assertEqual((self.main / 'doc/nested/local.txt').read_text(), 'local notes')
+        backups = list((self.main / 'doc/worktree-doc-backups').glob('*/doc-*/doc/nested/local.txt'))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0].read_text(), 'local notes')
+        (self.root / 'doc/shared.txt').write_text('written through link')
+        self.assertEqual((self.main / 'doc/shared.txt').read_text(), 'written through link')
+        self.assertEqual(self.git(self.root, 'status', '--porcelain'), '')
+
+    def test_shared_documents_refuses_conflicts_without_copying(self):
+        (self.root / 'doc').mkdir()
+        (self.root / 'doc/a-new.txt').write_text('unique')
+        (self.root / 'doc/notes.txt').write_text('local')
+        (self.main / 'doc/notes.txt').write_text('central')
+        for path in (self.root / 'doc/notes.txt', self.main / 'doc/notes.txt'):
+            os.utime(path, ns=(1000000000, 1000000000))
+        with self.assertRaisesRegex(c.ToolError, 'Documents différents'):
+            sessions.shared_documents(self.root)
+        self.assertFalse((self.root / 'doc').is_symlink())
+        self.assertFalse((self.main / 'doc/a-new.txt').exists())
+        self.assertEqual((self.root / 'doc/notes.txt').read_text(), 'local')
+        self.assertEqual((self.main / 'doc/notes.txt').read_text(), 'central')
+
+    def test_shared_documents_keeps_newest_version_and_backs_up_both(self):
+        (self.root / 'doc').mkdir()
+        for name, local_time, central_time in (('local.txt', 200, 100), ('central.txt', 100, 200)):
+            local, central = self.root / 'doc' / name, self.main / 'doc' / name
+            local.write_text('local ' + name)
+            central.write_text('central ' + name)
+            os.utime(local, (local_time, local_time))
+            os.utime(central, (central_time, central_time))
+        sessions.shared_documents(self.root)
+        self.assertEqual((self.main / 'doc/local.txt').read_text(), 'local local.txt')
+        self.assertEqual((self.main / 'doc/central.txt').read_text(), 'central central.txt')
+        archive = next((self.main / 'doc/worktree-doc-backups').glob('*/doc-*'))
+        self.assertEqual((archive / 'doc/local.txt').read_text(), 'local local.txt')
+        self.assertEqual((archive / 'doc/central.txt').read_text(), 'local central.txt')
+        self.assertEqual((archive / 'central/local.txt').read_text(), 'central local.txt')
+
+    def test_shared_documents_refuses_tracked_files_and_foreign_link(self):
+        (self.root / 'doc').mkdir()
+        (self.root / 'doc/tracked.txt').write_text('tracked')
+        self.git(self.root, 'add', '-f', 'doc/tracked.txt')
+        with self.assertRaisesRegex(c.ToolError, 'Documents suivis'):
+            sessions.shared_documents(self.root)
+        self.assertTrue((self.root / 'doc/tracked.txt').is_file())
+        self.git(self.root, 'reset', '--', 'doc/tracked.txt')
+        shutil.rmtree(self.root / 'doc')
+        (self.root / 'doc').symlink_to(self.main / 'other')
+        with self.assertRaisesRegex(c.ToolError, 'Lien local différent'):
+            sessions.shared_documents(self.root)
 
     def test_shared_tmp_discards_local_contents_and_preserves_main(self):
         (self.main / 'tmp').mkdir()
@@ -1403,6 +1462,7 @@ class WorktreeTests(unittest.TestCase):
         self.assertEqual(args[1:3], ['resume', 'abc'])
         self.assertEqual(args[args.index('-C')+1], str(self.root))
         self.assertEqual(args[args.index('--add-dir')+1], str(self.main / 'sessions_codex'))
+        self.assertIn(str(self.main / 'doc'), [args[i+1] for i, arg in enumerate(args) if arg == '--add-dir'])
 
     def runtime_fixture(self, root=None, mode='http', port=3002, status='active'):
         root = root or self.root
@@ -1822,28 +1882,39 @@ class WorktreeTests(unittest.TestCase):
             self.assertEqual(docker.choose_port(self.root, 'http'), 3006)
             self.assertEqual(docker.choose_port(self.root, 'debug'), 3006)
 
-    def test_stopped_worktree_refuses_new_port_when_previous_port_is_busy(self):
+    def test_stopped_worktree_uses_next_port_when_previous_port_is_busy(self):
         self.runtime_fixture(port=3006, status='stopped')
         with patch.object(docker, 'published_ports', return_value={3006: {'external'}}), \
                 patch.object(docker, 'port_available', return_value=True), patch.object(docker, 'docker') as mutation:
-            with self.assertRaisesRegex(c.ToolError, 'Le port 3006 de ce worktree'):
-                docker.choose_port(self.root, 'http')
+            self.assertEqual(docker.choose_port(self.root, 'http'), 3007)
         mutation.assert_not_called()
         with patch.object(docker, 'published_ports', return_value={}), \
                 patch.object(docker, 'port_available', side_effect=lambda port: port != 3006):
-            with self.assertRaisesRegex(c.ToolError, 'Le port 3006 de ce worktree'):
-                docker.choose_port(self.root, 'http')
+            self.assertEqual(docker.choose_port(self.root, 'http'), 3007)
 
-    def test_stopped_worktree_preserves_port_if_reserved_or_debugger_busy(self):
+    def test_stopped_worktree_uses_next_port_if_reserved_or_debugger_busy(self):
         self.runtime_fixture(port=3006, status='stopped')
         with patch.object(docker, 'published_ports', return_value={docker.debugger_port(3006): {'external'}}), \
                 patch.object(docker, 'port_available', return_value=True):
-            with self.assertRaisesRegex(c.ToolError, 'Le port 3006 de ce worktree'):
-                docker.choose_port(self.root, 'debug')
+            self.assertEqual(docker.choose_port(self.root, 'debug'), 3007)
         self.runtime_fixture(self.main.parent / 'project-2345_other', port=3006)
         with patch.object(docker, 'published_ports', return_value={}), \
                 patch.object(docker, 'port_available', return_value=True):
-            with self.assertRaisesRegex(c.ToolError, 'Le port 3006 de ce worktree'):
+            self.assertEqual(docker.choose_port(self.root, 'http'), 3007)
+
+    def test_port_fallback_skips_busy_pairs_and_wraps_at_end_of_range(self):
+        self.runtime_fixture(port=3008, status='stopped')
+        self.runtime_fixture(self.main.parent / 'project-2345_other', port=3003)
+        busy = {3008: {'external'}, docker.debugger_port(3009): {'external'}}
+        with patch.object(docker, 'published_ports', return_value=busy), \
+                patch.object(docker, 'port_available', side_effect=lambda port: port != 3002):
+            self.assertEqual(docker.choose_port(self.root, 'debug'), 3004)
+
+    def test_previous_port_does_not_bypass_exhausted_range(self):
+        self.runtime_fixture(port=3006, status='stopped')
+        with patch.object(docker, 'published_ports', return_value={}), \
+                patch.object(docker, 'port_available', return_value=False):
+            with self.assertRaisesRegex(c.ToolError, 'Aucun port libre dans la plage configurée'):
                 docker.choose_port(self.root, 'http')
 
     def test_port_assignment_refuses_ninth_task_and_reuses_stopped_slot(self):
@@ -2493,6 +2564,33 @@ class WorktreeTests(unittest.TestCase):
         self.assertEqual(archives[0].parent, self.main / 'doc')
         self.assertEqual(backup.inspect_archive(archives[0])[2], [b'unfinished'])
         self.assertEqual((self.root / 'tracked.txt').read_text(), 'unfinished')
+
+    def test_close_uses_reassigned_port_and_preserves_other_worktree(self):
+        sessions.prepare(self.root)
+        other = self.main.parent / 'project-2345_other'
+        other_state = self.runtime_fixture(other, port=3002)
+        self.runtime_fixture(port=3002, status='stopped')
+        with patch.object(docker, 'published_ports', return_value={3002: {docker.project_for(other)}}), \
+                patch.object(docker, 'port_available', return_value=True):
+            port = docker.choose_port(self.root, 'http')
+        self.assertEqual(port, 3003)
+        own = self.runtime_fixture(port=port)
+        own['override'] = str(docker.STATE / 'configs' / 'own-port-3003.yml')
+        docker.write_state(own)
+        mounts = [('web_http', self.root, 'own-id', True), ('web_http', other, 'other-id', True)]
+        with patch.object(docker, 'app_mounts', return_value=mounts), \
+                patch.object(docker, 'run', return_value=Mock(returncode=0)) as run, \
+                patch.object(atelier, 'extra_terminal_shells', return_value=[]):
+            atelier.close(self.root)
+        run.assert_called_once()
+        command = run.call_args.args[0]
+        self.assertEqual(command[command.index('-p') + 1], own['project'])
+        self.assertIn(own['override'], command)
+        self.assertEqual(command[-len(docker.APPS)-2:], ['stop', *docker.APPS, docker.PROXY_SERVICE])
+        self.assertEqual(docker.read_state(self.root)['status'], 'stopped')
+        self.assertEqual(docker.read_state(self.root)['port'], 3003)
+        self.assertEqual(docker.read_state(other), other_state)
+        self.assertTrue((atelier.directory(self.root) / 'close').exists())
 
     def test_backup_failure_keeps_tabs_open(self):
         sessions.prepare(self.root)

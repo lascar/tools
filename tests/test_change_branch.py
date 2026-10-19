@@ -15,6 +15,7 @@ import change_branch as cb
 import _wt_common as common
 import _wt_atelier as atelier
 import _wt_docker as runtime
+import _wt_remove as removal
 
 
 class ChangeBranchTests(unittest.TestCase):
@@ -140,6 +141,49 @@ class ChangeBranchTests(unittest.TestCase):
         finally:
             child.terminate()
             child.wait(timeout=5)
+
+    def protected_process(self):
+        proc = Path(self.temp.name) / '2265'
+        proc.mkdir()
+        (proc / 'comm').write_text('sleep\n')
+        original_resolve = Path.resolve
+        original_iterdir = Path.iterdir
+        def resolve(path, *args, **kwargs):
+            if path == proc / 'cwd':
+                raise PermissionError('protected cwd')
+            return original_resolve(path, *args, **kwargs)
+        def iterdir(path):
+            return iter([proc]) if path == Path('/proc') else original_iterdir(path)
+        self.enterContext(patch.object(Path, 'resolve', resolve))
+        self.enterContext(patch.object(Path, 'iterdir', iterdir))
+        return proc
+
+    def test_protected_process_outside_worktree_allows_check_and_preserves_stdout(self):
+        proc = self.protected_process()
+        output, errors = io.StringIO(), io.StringIO()
+        result = subprocess.CompletedProcess([], 0, str(self.main) + '\n', '')
+        with patch.object(removal, 'run', return_value=result) as read, \
+                contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+            cb.idle(self.root)
+        read.assert_called_once_with(['sudo', 'readlink', '-e', '--', proc / 'cwd'], capture=True, check=False)
+        self.assertEqual(output.getvalue(), '')
+        self.assertIn('2265 protégé', errors.getvalue())
+
+    def test_protected_process_in_worktree_still_blocks_before_pull(self):
+        self.protected_process()
+        result = subprocess.CompletedProcess([], 0, str(self.root) + '\n', '')
+        with patch.object(removal, 'run', return_value=result), patch.object(cb, 'run') as run:
+            with self.assertRaisesRegex(common.ToolError, 'Commande active.*sleep'):
+                cb.prepare(self.task)
+            run.assert_not_called()
+
+    def test_failed_privileged_process_check_blocks_before_pull(self):
+        self.protected_process()
+        result = subprocess.CompletedProcess([], 1, '', 'sudo refusé')
+        with patch.object(removal, 'run', return_value=result), patch.object(cb, 'run') as run:
+            with self.assertRaisesRegex(common.ToolError, 'sudo refusé'):
+                cb.prepare(self.task)
+            run.assert_not_called()
 
     def test_git_operation_refused_with_clean_index(self):
         marker = Path(self.git(self.root, 'rev-parse', '--path-format=absolute', '--git-path', 'CHERRY_PICK_HEAD'))
