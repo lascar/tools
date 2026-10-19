@@ -79,6 +79,7 @@ nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
 <h2 id="6-faire-une-modification-rapide-sans-atelier-complet">6. Faire une modification rapide sans atelier complet</h2>
 <p>Depuis un terminal ayant chargé <code>worktree_shell.sh</code> :</p>
 <pre><code>change_branch.sh 1234_ma_tache
+change_branch.sh                  # Revenir dans le dépôt principal sur sa branche de référence
 </code></pre>
 <p>La tâche doit déjà avoir un worktree. La commande refuse les changements locaux et l’activité détectée dans la cible, vérifie le dépôt principal propre sur sa branche principale, y effectue le pull en avance rapide, fait <code>cd</code> vers le worktree puis y fusionne la base.</p>
 <p>Elle ne démarre pas de serveur. Un refus avant déplacement conserve ton dossier ; un conflit de fusion te laisse dans la tâche pour le résoudre. Après succès, tu restes dans la tâche pour travailler. <code>cd -</code> revient au dossier précédent.</p>

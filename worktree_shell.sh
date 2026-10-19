@@ -21,15 +21,20 @@ worktree_close.sh() {
 # Le Python prépare la cible avant de déplacer ce shell ; en cas de conflit,
 # rester dans la cible pour permettre sa résolution manuelle.
 change_branch.sh() {
+  local target
   if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
     "$_worktree_tools_dir/change_branch.sh" --help
     return
   fi
+  if [[ $# == 0 ]]; then
+    target="$(python3 "$_worktree_tools_dir/change_branch.py" home)" || return
+    cd -- "$target"
+    return
+  fi
   if [[ $# != 1 ]]; then
-    echo 'Usage : change_branch.sh <numéro_nom | t_numéro_nom>' >&2
+    echo 'Usage : change_branch.sh [numéro_nom | t_numéro_nom]' >&2
     return 2
   fi
-  local target
   target="$(python3 "$_worktree_tools_dir/change_branch.py" prepare "$1")" || return
   cd -- "$target" || return
   python3 "$_worktree_tools_dir/change_branch.py" merge "$1"

@@ -104,6 +104,7 @@ Depuis un terminal ayant chargé `worktree_shell.sh` :
 
 ```bash
 change_branch.sh 1234_ma_tache
+change_branch.sh                  # Revenir dans le dépôt principal sur sa branche de référence
 ```
 
 La tâche doit déjà avoir un worktree. La commande refuse les changements locaux et l’activité détectée dans la cible, vérifie le dépôt principal propre sur sa branche principale, y effectue le pull en avance rapide, fait `cd` vers le worktree puis y fusionne la base.

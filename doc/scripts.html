@@ -67,9 +67,9 @@ worktree_reach.sh
 <p>À lancer depuis le dépôt principal, hors du dossier à retirer, après décision explicite de suppression. Vérifie l’identité du worktree, l’absence d’activité et les changements Git, puis crée et relit une archive des fichiers locaux, y compris ignorés. Retire ensuite le worktree et son dossier.</p>
 <p>Conserve la branche et le journal central. Ne supprime aucune branche distante. Refuse une cible ambiguë, verrouillée, active ou modifiée. Un retrait partiel ou un problème de permissions peut nécessiter une intervention privilégiée ciblée, après sauvegarde vérifiée.</p>
 <h3 id="change_branchsh">change_branch.sh</h3>
-<pre><code>change_branch.sh &lt;tâche&gt;
+<pre><code>change_branch.sh [tâche]
 </code></pre>
-<p>Fonction Bash à charger avec <code>worktree_shell.sh</code>. Vise une branche déjà rattachée à un worktree, sans créer de branche ni de worktree.</p>
+<p>Fonction Bash à charger avec <code>worktree_shell.sh</code>. Vise une branche déjà rattachée à un worktree, sans créer de branche ni de worktree. Sans argument, revient dans le dépôt principal sur sa branche de référence (master pour bo.facile), sans pull ni fusion, en conservant les modifications locales. Si le principal n’est pas sur cette branche, le retour est refusé sans déplacer le terminal.</p>
 <p>Contrôle la propreté du départ, du principal et de la cible ; refuse l’activité détectée dans la cible ; actualise la branche principale par pull en avance rapide ; déplace le terminal dans la tâche puis y fusionne la base. Le principal doit déjà être sur sa branche principale. Aucun atelier ni serveur n’est lancé.</p>
 <p>Pour un processus de ton utilisateur dont le répertoire courant est protégé, la vérification utilise <code>sudo readlink</code> uniquement sur <code>/proc/&lt;PID&gt;/cwd</code> et peut demander ton mot de passe. Un processus extérieur au worktree ne bloque pas la commande ; une activité dans le worktree ou une vérification impossible reste bloquante.</p>
 <p>Un refus préalable garde le dossier initial. Un conflit laisse le terminal dans la tâche. L’exécutable seul indique comment charger la fonction ; <code>--help</code> reste disponible directement.</p>

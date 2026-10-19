@@ -131,13 +131,27 @@ def merge(task):
             raise ToolError('Fusion interrompue dans %s. Consulte git status ; aucun conflit résolu automatiquement.' % root)
 
 
+def home():
+    # Revenir dans le worktree principal sans toucher aux branches des taches.
+    if context(MAIN)[1] != BASE_BRANCH:
+        raise ToolError(f'Le dépôt principal doit déjà être sur {BASE_BRANCH} ; aucun changement de branche automatique.')
+    print(MAIN)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('phase', choices=('prepare', 'merge'))
-    parser.add_argument('task')
+    parser.add_argument('phase', choices=('prepare', 'merge', 'home'))
+    parser.add_argument('task', nargs='?')
     args = parser.parse_args()
+    if args.phase != 'home' and not args.task:
+        parser.error('la tâche est obligatoire pour prepare et merge')
+    if args.phase == 'home' and args.task:
+        parser.error('home ne prend pas de tâche')
     try:
-        (prepare if args.phase == 'prepare' else merge)(args.task)
+        if args.phase == 'home':
+            home()
+        else:
+            (prepare if args.phase == 'prepare' else merge)(args.task)
     except (ToolError, OSError, subprocess.TimeoutExpired, ValueError) as error:
         print('ERREUR : %s' % error, file=sys.stderr)
         return 1

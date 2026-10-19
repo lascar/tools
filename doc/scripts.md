@@ -93,10 +93,10 @@ Conserve la branche et le journal central. Ne supprime aucune branche distante. 
 ### change_branch.sh
 
 ```text
-change_branch.sh <tâche>
+change_branch.sh [tâche]
 ```
 
-Fonction Bash à charger avec `worktree_shell.sh`. Vise une branche déjà rattachée à un worktree, sans créer de branche ni de worktree.
+Fonction Bash à charger avec `worktree_shell.sh`. Vise une branche déjà rattachée à un worktree, sans créer de branche ni de worktree. Sans argument, revient dans le dépôt principal sur sa branche de référence (master pour bo.facile), sans pull ni fusion, en conservant les modifications locales. Si le principal n’est pas sur cette branche, le retour est refusé sans déplacer le terminal.
 
 Contrôle la propreté du départ, du principal et de la cible ; refuse l’activité détectée dans la cible ; actualise la branche principale par pull en avance rapide ; déplace le terminal dans la tâche puis y fusionne la base. Le principal doit déjà être sur sa branche principale. Aucun atelier ni serveur n’est lancé.
 

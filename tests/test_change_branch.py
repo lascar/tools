@@ -239,6 +239,32 @@ class ChangeBranchTests(unittest.TestCase):
         self.assertIn('RESULT=1\nPWD='+str(self.root), third.stdout, third.stderr)
         self.assertIn('UU tracked.txt', self.git(self.root, 'status', '--porcelain'))
 
+    def test_shell_without_argument_returns_to_main_and_preserves_dirty_task(self):
+        head = self.git(self.main, 'rev-parse', 'HEAD')
+        (self.root / 'tracked.txt').write_text('unfinished task\n')
+        (self.main / 'untracked.txt').write_text('unfinished main\n')
+        env = dict(os.environ, WT_MAIN_ROOT=str(self.main))
+        script = 'source "$1/worktree_shell.sh"; change_branch.sh; result=$?; printf "RESULT=%s\\nPWD=%s\\n" "$result" "$PWD"'
+        for start in (self.root, self.main):
+            result = subprocess.run(['bash', '--noprofile', '--norc', '-c', script, 'test', str(TOOLS)],
+                                    cwd=start, env=env, text=True, capture_output=True, timeout=10)
+            self.assertIn('RESULT=0\nPWD=' + str(self.main), result.stdout, result.stderr)
+        self.assertEqual(self.git(self.main, 'rev-parse', 'HEAD'), head)
+        self.assertEqual(self.git(self.main, 'branch', '--show-current'), 'master')
+        self.assertEqual(self.git(self.root, 'branch', '--show-current'), self.branch)
+        self.assertEqual((self.root / 'tracked.txt').read_text(), 'unfinished task\n')
+        self.assertEqual((self.main / 'untracked.txt').read_text(), 'unfinished main\n')
+
+    def test_shell_without_argument_refuses_wrong_main_branch_and_keeps_directory(self):
+        self.git(self.main, 'checkout', '-qb', 'other')
+        env = dict(os.environ, WT_MAIN_ROOT=str(self.main))
+        script = 'source "$1/worktree_shell.sh"; change_branch.sh; result=$?; printf "RESULT=%s\\nPWD=%s\\n" "$result" "$PWD"'
+        result = subprocess.run(['bash', '--noprofile', '--norc', '-c', script, 'test', str(TOOLS)],
+                                cwd=self.root, env=env, text=True, capture_output=True, timeout=10)
+        self.assertIn('RESULT=1\nPWD=' + str(self.root), result.stdout)
+        self.assertIn('doit déjà être sur master', result.stderr)
+        self.assertEqual(self.git(self.main, 'branch', '--show-current'), 'other')
+
     def test_missing_worktree_and_wrong_main_branch_refuse_before_pull(self):
         with patch.object(cb, 'run') as run:
             with self.assertRaisesRegex(common.ToolError, 'Aucun worktree'):
