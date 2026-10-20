@@ -172,7 +172,7 @@ Pour produire le rapport de la tâche :
 desc_git.sh 1234_ma_tache
 ```
 
-Le rapport est écrit dans le dossier de documentation du worktree. Il commence par les fichiers modifiés, puis présente les commits dont le sujet commence par le nom exact de la tâche et leurs diffs. Les commits déjà intégrés dans la base restent inclus.
+Le rapport est écrit dans le dossier de documentation central. Une tâche nommée peut ne plus avoir de worktree : la commande lit sa branche locale, ou sa référence distante déjà connue si la branche locale est absente, sans créer de branche ni de worktree. Il commence par les fichiers modifiés, puis présente les commits dont le sujet commence par le nom exact de la tâche et leurs diffs. Les commits déjà intégrés dans la base restent inclus.
 
 Pour vérifier les collisions locales et lancer les tests configurés :
 

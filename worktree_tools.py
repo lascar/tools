@@ -306,11 +306,32 @@ def open_command(args):
     if args.result_file: Path(args.result_file).write_text(str(root) + '\n')
 
 
-def describe(root):
-    root, branch, task = context(root, task=True)
+def describe(root, task=None):
+    report_worktree = None
+    if task is None:
+        root, branch, task = context(root, task=True)
+        report_worktree = root
+        head = value(root, 'rev-parse', 'HEAD')
+    else:
+        branch = task_branch(task)
+        task = branch.split('/', 1)[1]
+        if any(row.get('branch') == 'refs/heads/' + branch for row in worktrees()):
+            root = existing_worktree(task)
+            report_worktree = root
+            head = value(root, 'rev-parse', 'HEAD')
+        else:
+            # Les objets Git restent accessibles après le retrait d'un worktree.
+            # Préférer la branche locale, sinon sa référence distante déjà connue.
+            root = MAIN
+            for ref in ('refs/heads/' + branch, 'refs/remotes/' + REMOTE + '/' + branch):
+                result = git(root, 'rev-parse', '--verify', ref + '^{commit}', check=False)
+                if result.returncode == 0:
+                    head = result.stdout.strip()
+                    break
+            else:
+                raise ToolError('Branche locale ou référence distante absente pour %s ; rapport non créé.' % branch)
     # Une tâche déjà intégrée reste présente dans l'historique de HEAD :
     # sélectionner ses sujets, pas la différence avec la branche principale.
-    head = value(root, 'rev-parse', 'HEAD')
     prefix = re.compile(r'^' + re.escape(task) + r'(?:$|[\s:])')
     commits = []
     for line in git(root, 'log', '--format=%H%x09%s', head).stdout.splitlines():
@@ -328,7 +349,7 @@ def describe(root):
                             '--no-ext-diff', '--no-textconv', sha).stdout)
     text = 'Fichiers modifiés dans les commits de la tâche :\n'
     text += ('\n'.join(sorted(paths)) if paths else '(aucun)') + '\n\n'
-    text += 'Tâche : %s\nBranche : %s\nWorktree : %s\nHEAD analysé : %s\nCommits sélectionnés : %s\n\n' % (task, branch, root, head, len(commits))
+    text += 'Tâche : %s\nBranche : %s\nWorktree : %s\nHEAD analysé : %s\nCommits sélectionnés : %s\n\n' % (task, branch, report_worktree or '(absent ; lecture directe de la branche)', head, len(commits))
     if commits:
         text += '\n\n'.join(descriptions)
     else:
@@ -473,7 +494,7 @@ def parser():
                    help='Mode serveur ; par défaut, conserver le mode actif, sinon http')
     q = sub.add_parser('_master_tab'); q.add_argument('role', choices=['console', 'server'])
     q = sub.add_parser('desc_git')
-    q.add_argument('task', nargs='?', help='Tâche existante à décrire ; par défaut, le worktree courant')
+    q.add_argument('task', nargs='?', help='Tâche à décrire, avec ou sans worktree ; par défaut, le worktree courant')
     for name in ('worktree_status', 'worktree_port', 'worktree_open_current', 'put_branch_in_idea'):
         sub.add_parser(name)
     q = sub.add_parser('worktree_check_conflicts'); q.add_argument('paths', nargs='*'); q.add_argument('--against')
@@ -532,7 +553,7 @@ def main():
         else:
             print('serveur arrêté')
         return
-    if a.command == 'desc_git': return describe(existing_worktree(a.task) if a.task else root)
+    if a.command == 'desc_git': return describe(root, a.task)
     if a.command == 'worktree_open_current': return atelier.open_atelier(root)
     if a.command == 'worktree_check_conflicts':
         paths = a.paths or patches.changed(root)

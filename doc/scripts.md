@@ -163,7 +163,7 @@ is_any_patch.sh done
 desc_git.sh [tâche]
 ```
 
-Décrit la tâche nommée, dont le worktree doit exister ; sans argument, utilise le worktree courant. Écrit `<tâche>_git.txt` dans le dossier de documentation central `WT_MAIN_ROOT/WT_DOCUMENTS_DIR`, y compris depuis un worktree.
+Décrit la tâche nommée avec ou sans worktree ; sans argument, utilise le worktree courant. Sans worktree, lit la branche locale ou, à défaut, sa référence distante déjà connue, sans créer de branche ni de worktree. Une branche inconnue ou un worktree existant verrouillé reste refusé. Écrit `<tâche>_git.txt` dans le dossier de documentation central `WT_MAIN_ROOT/WT_DOCUMENTS_DIR`, y compris depuis un worktree.
 
 Le rapport commence par les fichiers modifiés, triés et dédoublonnés, puis détaille les commits accessibles depuis HEAD dont le sujet commence par le nom exact de tâche suivi d’un espace, de deux-points ou de la fin du sujet. Il inclut les commits déjà intégrés dans la branche principale, les suppressions et les anciens/nouveaux chemins de renommage. Les fusions utilisent les différences combinées pour limiter les fichiers importés.
 

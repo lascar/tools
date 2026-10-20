@@ -1156,13 +1156,47 @@ class WorktreeTests(unittest.TestCase):
         finally:
             os.chdir(previous)
 
+    def test_desc_git_named_branch_without_worktree_creates_history(self):
+        (self.root / 'tracked.txt').write_text('historical task change\n')
+        self.git(self.root, 'add', 'tracked.txt')
+        self.git(self.root, 'commit', '-m', '1234_réglage : historical change')
+        head = self.git(self.root, 'rev-parse', 'HEAD')
+        self.git(self.main, 'worktree', 'remove', str(self.root))
+        before = self.git(self.main, 'worktree', 'list', '--porcelain')
+        env = dict(os.environ, WT_MAIN_ROOT=str(self.main))
+        result = subprocess.run([str(TOOLS / 'desc_git.sh'), '1234_réglage'],
+                                cwd=self.main, env=env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = (self.main / 'doc/1234_réglage_git.txt').read_text()
+        self.assertIn('Commits sélectionnés : 1', report)
+        self.assertIn('+historical task change', report)
+        self.assertIn('Worktree : (absent', report)
+        self.assertIn('HEAD analysé : ' + head, report)
+        self.assertEqual(self.git(self.main, 'worktree', 'list', '--porcelain'), before)
+        self.assertEqual(self.git(self.main, 'branch', '--show-current'), 'master')
+        self.assertEqual(self.git(self.main, 'rev-parse', 'feature/1234_réglage'), head)
+        self.assertFalse(self.root.exists())
+
+    def test_desc_git_remote_only_branch_without_worktree(self):
+        self.git(self.root, 'commit', '--allow-empty', '-m', '1234_réglage : remote history')
+        head = self.git(self.root, 'rev-parse', 'HEAD')
+        self.git(self.main, 'update-ref', 'refs/remotes/origin/feature/1234_réglage', head)
+        self.git(self.main, 'worktree', 'remove', str(self.root))
+        self.git(self.main, 'branch', '-D', 'feature/1234_réglage')
+        cli.describe(self.main, '1234_réglage')
+        report = (self.main / 'doc/1234_réglage_git.txt').read_text()
+        self.assertIn('1234_réglage : remote history', report)
+        self.assertIn('HEAD analysé : ' + head, report)
+        self.assertFalse(self.root.exists())
+        self.assertEqual(self.git(self.main, 'branch', '--list', 'feature/1234_réglage'), '')
+
     def test_desc_git_missing_or_locked_worktree_refuses_without_creation(self):
         previous = Path.cwd()
         try:
             os.chdir(self.main)
             with patch.object(sys, 'argv', ['worktree_tools.py', 'desc_git', '9999_absente']), \
                     patch.object(cli, 'ensure_worktree') as create:
-                with self.assertRaisesRegex(c.ToolError, 'Aucun worktree'):
+                with self.assertRaisesRegex(c.ToolError, 'Branche locale ou référence distante absente'):
                     cli.main()
                 create.assert_not_called()
             self.git(self.main, 'worktree', 'lock', str(self.root))
