@@ -34,6 +34,12 @@ nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
 worktree_reach.sh 1234_ma_tache --no-update
 worktree_reach.sh
 </code></pre>
+<h3 id="worktree_prunesh">worktree_prune.sh</h3>
+<pre><code>worktree_prune [days=20] [--dry-run]
+worktree_prune.sh [days=20] [--dry-run]
+</code></pre>
+<p>Retire les worktrees de tâches sans activité locale depuis le nombre de jours indiqué (entier strictement positif). <code>--dry-run</code> affiche les candidats sans sauvegarde ni suppression. Protège le dépôt principal, le worktree courant, les tâches ouvertes, modifiées, verrouillées et les situations impossibles à vérifier. L&#x27;activité correspond au maximum des dates de modification des fichiers locaux, des métadonnées Git propres au worktree, des journaux centraux et des traces d&#x27;atelier. Les liens vers les dossiers partagés ne sont pas parcourus. Une lecture passée seule n&#x27;est pas toujours détectable.</p>
+<p>Réutilise la suppression avec archive complète vérifiée de <code>worktree_remove.sh</code> et recontrôle l&#x27;âge sous verrou et après sauvegarde. Conserve les branches, journaux et documents partagés. Les refus sont détaillés ; une suppression en échec donne un code de sortie non nul.</p>
 <h3 id="worktree_newsh">worktree_new.sh</h3>
 <pre><code>worktree_new.sh &lt;tâche&gt; [--prepare-only] [--mode mode]
 </code></pre>

@@ -131,6 +131,15 @@ worktree_close.sh 1234_ma_tache   # Fermer uniquement cette tâche
 <p>Les commandes Git, sauvegardes, sessions d’éditeur et d’agent, relances de services et tests sont disponibles via leurs scripts <code>--help</code>. La fermeture conserve le worktree, ses fichiers et son journal central. Elle demande confirmation avant d’arrêter une commande active ; aucun arrêt forcé.</p>
 <p>Après une mise à jour, recharge <code>worktree_shell.sh</code> dans les terminaux ouverts. Les noms de variables internes utilisent le préfixe <code>WT_</code> ; les nouveaux ateliers doivent utiliser la même version des scripts que leurs superviseurs.</p>
 <h2 id="verification">Vérification</h2>
+<h3 id="retirer-les-worktrees-inactifs">Retirer les worktrees inactifs</h3>
+<pre><code>worktree_prune --dry-run       # aperçu, seuil de 20 jours
+worktree_prune                # suppression après 20 jours sans activité
+worktree_prune 30             # seuil personnalisé
+</code></pre>
+<p><code>worktree_prune.sh</code> est également disponible. Utilise le PATH des outils ou le chemin <code>~/bo.facile/doc/tools/worktree_prune</code>.</p>
+<p>L&#x27;activité est estimée par la date de modification la plus récente des fichiers et répertoires locaux (fichiers ignorés compris), de HEAD, de l&#x27;index, du reflog du worktree, des journaux centraux <code>.jsont</code>/<code>.jsonl</code> et des traces de son atelier. Les liens des dossiers partagés ne sont pas suivis. Une simple lecture passée ne laisse pas nécessairement de trace. La date du dernier commit seule ne suffit pas.</p>
+<p>Le dépôt principal, le worktree courant, les tâches actives (processus ou conteneurs), verrouillées, modifiées ou impossibles à vérifier sont conservés. Seules les branches de tâches conformes au nommage configuré sont traitées. Une sauvegarde complète vérifiée précède chaque suppression ; l&#x27;âge et l&#x27;activité sont recontrôlés sous verrou et après sauvegarde. Les branches, les journaux centraux et les documents partagés sont conservés. Aucun fetch, arrêt de processus ou nettoyage global des métadonnées Git. Une vérification de processus protégé peut nécessiter une lecture ciblée avec sudo, comme <code>worktree_remove.sh</code>.</p>
+<p>Les refus préalables sont affichés comme <code>CONSERVÉ</code>. Une suppression qui échoue est signalée par <code>ÉCHEC</code> et un code de sortie non nul ; les autres tâches continuent à être examinées.</p>
 <pre><code>python3 -m unittest discover -s tests -v
 python3 -m compileall -q .
 </code></pre>

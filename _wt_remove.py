@@ -142,11 +142,13 @@ def backup(root, branch, sha):
     return before
 
 
-def remove(task):
+def remove(task, guard=None):
     context()
     with locked(STATE / 'worktree-create.lock'):
         root, branch, sha, registered = target(task)
         with locked(atelier.directory(root) / 'atelier.lock'), locked(STATE / 'runtime.lock'):
+            # Les suppressions collectives revalident leur critère sous les verrous.
+            if guard: guard(root, branch)
             inactive(root)
             if registered: clean(root)
             identity = (root.stat().st_dev, root.stat().st_ino)
@@ -154,6 +156,7 @@ def remove(task):
             if target(task) != (root, branch, sha, registered) or inventory(root) != saved:
                 raise ToolError('La cible a changé ; suppression annulée.')
             inactive(root)
+            if guard: guard(root, branch)
             if registered:
                 clean(root)
                 result = git(MAIN, 'worktree', 'remove', str(root), check=False)
