@@ -45,7 +45,7 @@ Documentation vérifiée le 15 octobre 2026 sur les fichiers `.sh` actuellement 
 
 - [pull.sh](doc/scripts.md#pullsh) — faire un pull en avance rapide dans le dossier courant.
 - [commit.sh](doc/scripts.md#commitsh) — committer l’index préparé dans le worktree de tâche.
-- [push.sh](doc/scripts.md#pushsh) — pousser la branche de tâche vers une destination configurée.
+- [push.sh](doc/scripts.md#pushsh) — pousser la branche de tâche vers une destination configurée, ou master vers dev-b avec `development`.
 - [merge_to_master.sh](doc/scripts.md#merge_to_mastersh) — auditer l’intégration dans la branche principale, sans fusion.
 - [merge_to_dev.sh](doc/scripts.md#merge_to_devsh) — auditer l’intégration dans une branche de développement, sans fusion.
 - [relance_codex.sh](doc/scripts.md#relance_codexsh) — reprendre l’agent dans le worktree courant.

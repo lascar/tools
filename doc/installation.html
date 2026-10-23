@@ -34,6 +34,11 @@ nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
 <li><code>docker</code>, avec le plugin <code>docker compose</code> : services applicatifs et tests.</li>
 <li>L’agent utilisé dans les ateliers, accessible par la commande <code>codex</code> ou par le chemin défini dans <code>CODEX_BIN</code>.</li>
 </ul>
+<p>Si une destination de push utilise une commande préalable <code>knock</code> dans <code>WT_PUSH_TARGETS</code> (notamment dev-b), installe aussi le client de port knocking. Sous Debian, la commande est fournie par le paquet <code>knockd</code> :</p>
+<pre><code>sudo apt-get install --no-install-recommends knockd
+command -v knock
+</code></pre>
+<p>Si <code>push.sh</code> affiche <code>No such file or directory: &#x27;knock&#x27;</code>, installe ce paquet puis relance le push. Le script s’arrête avant le push lorsque cette commande préalable est absente.</p>
 <p>Installe ces composants avec les moyens habituels de ton poste. Python utilise ici sa bibliothèque standard : aucun environnement virtuel ni installation de paquets Python n’est nécessaire pour exécuter les outils.</p>
 <p>Contrôle leur présence depuis le terminal qui servira à ouvrir les ateliers :</p>
 <pre><code>command -v git python3 bash gnome-terminal gsettings dconf vim docker

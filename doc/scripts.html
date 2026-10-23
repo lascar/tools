@@ -172,14 +172,15 @@ worktree_docker.sh logs
 <h3 id="commitsh">commit.sh</h3>
 <pre><code>commit.sh &lt;message&gt; [--no-verify]
 </code></pre>
-<p>À lancer dans le worktree de tâche après préparation explicite de l’index. Vérifie les conflits, les fichiers personnels et les erreurs de diff, puis crée le commit avec le préfixe automatique <code>&lt;nom de tâche&gt; :</code>.</p>
+<p>À lancer sur une branche de tâche, dans son worktree dédié ou dans le dépôt principal après un simple <code>change_branch.sh</code>, après préparation explicite de l’index. Le commit sur la branche principale reste refusé. Vérifie les conflits, les fichiers personnels et les erreurs de diff, puis crée le commit avec le préfixe automatique <code>&lt;nom de tâche&gt; :</code>.</p>
 <p>Les messages ordinaires suivent Conventional Commits, par exemple <code>fix: corriger le comportement</code>. Ne fournis pas le nom de tâche. Les messages spéciaux définis dans <code>WT_SPECIAL_COMMITS</code> peuvent ajouter leurs fichiers configurés avant le commit ; les protections des fichiers personnels restent vérifiées ensuite. <code>--no-verify</code> désactive les hooks Git uniquement sur choix explicite.</p>
 <pre><code>commit.sh &#x27;fix: corriger le comportement&#x27;
 </code></pre>
 <h3 id="pushsh">push.sh</h3>
 <pre><code>push.sh [destination] [--force-with-lease]
 </code></pre>
-<p>Pousse la branche du worktree de tâche vers la destination configurée, par défaut le remote principal. Ne pousse pas la branche principale. Une destination peut prévoir une commande préalable, définie dans le <code>.env</code>.</p>
+<p>Pousse la branche de tâche courante, dans son worktree dédié ou dans le dépôt principal après <code>change_branch.sh</code>, vers la destination configurée, par défaut le remote principal. Depuis le dépôt principal sur master, la destination development (alias develop ou developpement) autorise aussi master vers le remote de dev-b, en conservant le nom de branche master. Le push de master vers origin reste interdit. Une destination peut prévoir une commande préalable, définie dans le <code>.env</code>.</p>
+<p>Pour dev-b, la commande préalable <code>knock</code> doit être disponible dans le <code>PATH</code>. Sous Debian, installe-la avec <code>sudo apt-get install --no-install-recommends knockd</code>, puis relance <code>push.sh develop</code> (ou <code>push.sh development</code>). Une erreur <code>No such file or directory: &#x27;knock&#x27;</code> interrompt la commande avant le push. Voir les <a href="installation.html">prérequis</a>.</p>
 <p><code>--force-with-lease</code> est limité aux remotes explicitement autorisés ; le SHA distant attendu est relu avant le push. Le script ne fait pas de commit ni de fusion.</p>
 <h3 id="merge_to_mastersh">merge_to_master.sh</h3>
 <pre><code>merge_to_master.sh [jours] [auteur] [cible] [--fetch | --no-fetch]

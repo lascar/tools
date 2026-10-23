@@ -280,7 +280,7 @@ Exécute uniquement `git pull --ff-only` dans le dossier courant. Ne sélectionn
 commit.sh <message> [--no-verify]
 ```
 
-À lancer dans le worktree de tâche après préparation explicite de l’index. Vérifie les conflits, les fichiers personnels et les erreurs de diff, puis crée le commit avec le préfixe automatique `<nom de tâche> :`.
+À lancer sur une branche de tâche, dans son worktree dédié ou dans le dépôt principal après un simple `change_branch.sh`, après préparation explicite de l’index. Le commit sur la branche principale reste refusé. Vérifie les conflits, les fichiers personnels et les erreurs de diff, puis crée le commit avec le préfixe automatique `<nom de tâche> :`.
 
 Les messages ordinaires suivent Conventional Commits, par exemple `fix: corriger le comportement`. Ne fournis pas le nom de tâche. Les messages spéciaux définis dans `WT_SPECIAL_COMMITS` peuvent ajouter leurs fichiers configurés avant le commit ; les protections des fichiers personnels restent vérifiées ensuite. `--no-verify` désactive les hooks Git uniquement sur choix explicite.
 
@@ -294,7 +294,9 @@ commit.sh 'fix: corriger le comportement'
 push.sh [destination] [--force-with-lease]
 ```
 
-Pousse la branche du worktree de tâche vers la destination configurée, par défaut le remote principal. Ne pousse pas la branche principale. Une destination peut prévoir une commande préalable, définie dans le `.env`.
+Pousse la branche de tâche courante, dans son worktree dédié ou dans le dépôt principal après `change_branch.sh`, vers la destination configurée, par défaut le remote principal. Depuis le dépôt principal sur master, la destination development (alias develop ou developpement) autorise aussi master vers le remote de dev-b, en conservant le nom de branche master. Le push de master vers origin reste interdit. Une destination peut prévoir une commande préalable, définie dans le `.env`.
+
+Pour dev-b, la commande préalable `knock` doit être disponible dans le `PATH`. Sous Debian, installe-la avec `sudo apt-get install --no-install-recommends knockd`, puis relance `push.sh develop` (ou `push.sh development`). Une erreur `No such file or directory: 'knock'` interrompt la commande avant le push. Voir les [prérequis](installation.md).
 
 `--force-with-lease` est limité aux remotes explicitement autorisés ; le SHA distant attendu est relu avant le push. Le script ne fait pas de commit ni de fusion.
 

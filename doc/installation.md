@@ -18,6 +18,15 @@ Prévois les commandes suivantes dans le `PATH` :
 - `docker`, avec le plugin `docker compose` : services applicatifs et tests.
 - L’agent utilisé dans les ateliers, accessible par la commande `codex` ou par le chemin défini dans `CODEX_BIN`.
 
+Si une destination de push utilise une commande préalable `knock` dans `WT_PUSH_TARGETS` (notamment dev-b), installe aussi le client de port knocking. Sous Debian, la commande est fournie par le paquet `knockd` :
+
+```bash
+sudo apt-get install --no-install-recommends knockd
+command -v knock
+```
+
+Si `push.sh` affiche `No such file or directory: 'knock'`, installe ce paquet puis relance le push. Le script s’arrête avant le push lorsque cette commande préalable est absente.
+
 Installe ces composants avec les moyens habituels de ton poste. Python utilise ici sa bibliothèque standard : aucun environnement virtuel ni installation de paquets Python n’est nécessaire pour exécuter les outils.
 
 Contrôle leur présence depuis le terminal qui servira à ouvrir les ateliers :

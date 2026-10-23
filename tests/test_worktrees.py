@@ -2584,8 +2584,73 @@ class WorktreeTests(unittest.TestCase):
             self.assertEqual(self.git(self.root, 'show', 'HEAD:tracked.txt'), 'initial')
             self.assertEqual((self.root / 'tracked.txt').read_text(), 'unfinished')
 
+    def test_commit_to_prod_on_task_in_main_after_checkout(self):
+        self.git(self.main, 'checkout', '-b', 'feature/5678_local')
+        helper = self.main / c.setting_json('SPECIAL_COMMITS')['to_prod'][0]
+        helper.parent.mkdir(parents=True, exist_ok=True)
+        helper.write_text('production change\n')
+        (self.main / 'tracked.txt').write_text('unfinished\n')
+        cli.commit(self.main, 'to_prod')
+        self.assertEqual(self.git(self.main, 'log', '-1', '--format=%s'),
+                         '5678_local : to_prod')
+        self.assertEqual(self.git(self.main, 'show', 'HEAD:tracked.txt'), 'initial')
+        self.assertEqual((self.main / 'tracked.txt').read_text(), 'unfinished\n')
+        with self.assertRaises(c.ToolError):
+            c.context(self.main, task=True)
+
+    def test_commit_master_still_refused(self):
+        with patch.object(cli, 'run') as run:
+            with self.assertRaises(c.ToolError):
+                cli.commit(self.main, 'to_prod')
+            run.assert_not_called()
+
+    def test_push_task_in_main_keeps_branch(self):
+        self.git(self.main, 'checkout', '-b', 'feature/5678_local')
+        with patch.object(cli, 'value', return_value='remote'), \
+                patch.object(cli, 'run', return_value=Mock(returncode=0)) as run:
+            cli.push(self.main, 'origin')
+            self.assertEqual(run.call_args.args[0], ['git', '-C', self.main,
+                'push', 'origin', 'HEAD:refs/heads/feature/5678_local'])
+
     def test_push_refuses_master_before_network(self):
         with self.assertRaises(c.ToolError): cli.push(self.main, 'origin')
+
+    def test_push_master_to_development_preserves_branch_and_knock(self):
+        for target in ('development', 'develop', 'developpement'):
+            with self.subTest(target=target), \
+                    patch.object(cli, 'value', return_value='remote'), \
+                    patch.object(cli, 'run', return_value=Mock(returncode=0)) as run:
+                self.assertEqual(cli.push(self.main, target), 0)
+                commands = [call.args[0] for call in run.call_args_list]
+                self.assertEqual(commands[0][0], 'knock')
+                self.assertEqual(commands[-1], ['git', '-C', self.main, 'push',
+                                               'develop', 'HEAD:refs/heads/master'])
+
+    def test_push_master_origin_refused_before_remote_or_knock(self):
+        with patch.object(cli, 'value') as value, patch.object(cli, 'run') as run:
+            with self.assertRaises(c.ToolError):
+                cli.push(self.main, 'origin')
+            value.assert_not_called()
+            run.assert_not_called()
+
+    def test_push_master_development_cannot_point_to_origin(self):
+        original = cli.setting_json
+        def settings(key, default=None):
+            if key == 'PUSH_TARGETS':
+                return {'development': {'remote': cli.REMOTE}}
+            return original(key, default)
+        with patch.object(cli, 'setting_json', side_effect=settings), \
+                patch.object(cli, 'run') as run:
+            with self.assertRaises(c.ToolError):
+                cli.push(self.main, 'development')
+            run.assert_not_called()
+
+    def test_push_task_to_development_keeps_task_branch(self):
+        with patch.object(cli, 'value', return_value='remote'), \
+                patch.object(cli, 'run', return_value=Mock(returncode=0)) as run:
+            cli.push(self.root, 'development')
+            self.assertEqual(run.call_args.args[0][-1],
+                             'HEAD:refs/heads/feature/1234_réglage')
 
     def test_close_saves_before_final_tab_close(self):
         sessions.prepare(self.root)

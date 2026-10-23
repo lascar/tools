@@ -362,7 +362,8 @@ def describe(root, task=None):
 
 
 def commit(root, message, no_verify=False):
-    root, branch, task = context(root, task=True)
+    # change_branch peut ouvrir une branche de tache dans le depot principal.
+    root, branch, task = context(root, task=True, allow_main=True)
     # Les messages speciaux et leurs fichiers sont definis par la configuration.
     if message not in setting_json('SPECIAL_COMMITS', {}) and not re.match(r'^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^\n]+\))?!?: .+', message):
         raise ToolError('Message attendu : to_prod, to_devb ou fix: description (ou autre type Conventional Commits).')
@@ -382,11 +383,17 @@ def commit(root, message, no_verify=False):
 
 
 def push(root, target, force=False):
-    root, branch, _ = context(root, task=True)
+    root, branch, _ = context(root)
     destinations = setting_json('PUSH_TARGETS', {REMOTE: {'remote': REMOTE}})
     if target not in destinations: raise ToolError('Destination inconnue.')
     destination = destinations[target]
     remote = destination['remote']
+    # Exception locale pour tester la branche principale sur dev-b uniquement.
+    development = destinations.get('development', {}).get('remote')
+    if not (root == MAIN and branch == BASE_BRANCH and
+            target in ('develop', 'development', 'developpement') and
+            remote == development and remote != REMOTE):
+        context(root, task=True, allow_main=True)
     if force and remote not in setting_json('FORCE_PUSH_REMOTES', []):
         raise ToolError('--force-with-lease est interdit pour cette destination.')
     value(root, 'remote', 'get-url', remote)

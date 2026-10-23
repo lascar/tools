@@ -48,7 +48,7 @@ def worktrees():
     return rows
 
 
-def context(path=None, task=False):
+def context(path=None, task=False, allow_main=False):
     root = Path(value(path or Path.cwd(), 'rev-parse', '--show-toplevel')).resolve()
     common = Path(value(root, 'rev-parse', '--path-format=absolute', '--git-common-dir')).resolve()
     expected = Path(value(MAIN, 'rev-parse', '--path-format=absolute', '--git-common-dir')).resolve()
@@ -57,7 +57,7 @@ def context(path=None, task=False):
     branch = value(root, 'branch', '--show-current')
     if not branch:
         raise ToolError('HEAD détachée : choisis un worktree de tâche.')
-    if task and (root == MAIN or not branch.startswith((FEATURE_PREFIX, TICKET_PREFIX))):
+    if task and ((root == MAIN and not allow_main) or not branch.startswith((FEATURE_PREFIX, TICKET_PREFIX))):
         raise ToolError('Cette commande nécessite un worktree de tâche dédié, hors dépôt principal.')
     name = branch.split('/', 1)[1] if branch.startswith((FEATURE_PREFIX, TICKET_PREFIX)) else branch
     if '/' in name or name in ('.', '..'):
