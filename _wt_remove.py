@@ -142,7 +142,7 @@ def backup(root, branch, sha):
     return before
 
 
-def remove(task, guard=None):
+def remove(task, guard=None, create_backup=True):
     context()
     with locked(STATE / 'worktree-create.lock'):
         root, branch, sha, registered = target(task)
@@ -152,7 +152,8 @@ def remove(task, guard=None):
             inactive(root)
             if registered: clean(root)
             identity = (root.stat().st_dev, root.stat().st_ino)
-            saved = backup(root, branch, sha)
+            # Le prune sans archive conserve les controles de stabilite du contenu.
+            saved = backup(root, branch, sha) if create_backup else inventory(root)
             if target(task) != (root, branch, sha, registered) or inventory(root) != saved:
                 raise ToolError('La cible a changé ; suppression annulée.')
             inactive(root)
@@ -174,7 +175,7 @@ def remove(task, guard=None):
                     print('Permissions insuffisantes : sudo est requis pour supprimer ce dossier uniquement.', flush=True)
                     run(['sudo', 'rm', '-r', '--', root])
             if root.exists() or any(Path(r['worktree']) == root for r in worktrees()):
-                raise ToolError('Suppression incomplète ; la sauvegarde est conservée.')
+                raise ToolError('Suppression incomplète.' + (' La sauvegarde est conservée.' if create_backup else ''))
             print('Worktree supprimé ; branche conservée : %s' % branch)
 
 

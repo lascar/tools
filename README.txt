@@ -147,11 +147,13 @@ worktree_prune --dry-run       # aperçu, seuil de 20 jours
 worktree_prune                # suppression après 20 jours sans activité
 worktree_prune 30             # seuil personnalisé
 
+Par défaut : `days=20` et `--dry-run` désactivé. Sans argument, la commande supprime réellement les worktrees éligibles : leur enregistrement Git et leur répertoire physique complet, sans sauvegarde ni archive. Les fichiers ignorés locaux sont effacés avec le dossier ; ils ne sont pas conservés dans la branche. Les modifications Git et fichiers non suivis bloquent la suppression. Ajoute --dry-run pour afficher seulement les candidats. Les branches, journaux centraux et cibles des liens vers les documents partagés sont conservés.
+
 worktree_prune.sh est également disponible. Utilise le PATH des outils ou le chemin ~/bo.facile/doc/tools/worktree_prune.
 
 L'activité est estimée par la date de modification la plus récente des fichiers et répertoires locaux (fichiers ignorés compris), de HEAD, de l'index, du reflog du worktree, des journaux centraux .jsont/.jsonl et des traces de son atelier. Les liens des dossiers partagés ne sont pas suivis. Une simple lecture passée ne laisse pas nécessairement de trace. La date du dernier commit seule ne suffit pas.
 
-Le dépôt principal, le worktree courant, les tâches actives (processus ou conteneurs), verrouillées, modifiées ou impossibles à vérifier sont conservés. Seules les branches de tâches conformes au nommage configuré sont traitées. Une sauvegarde complète vérifiée précède chaque suppression ; l'âge et l'activité sont recontrôlés sous verrou et après sauvegarde. Les branches, les journaux centraux et les documents partagés sont conservés. Aucun fetch, arrêt de processus ou nettoyage global des métadonnées Git. Une vérification de processus protégé peut nécessiter une lecture ciblée avec sudo, comme worktree_remove.sh.
+Le dépôt principal, le worktree courant, les tâches actives (processus ou conteneurs), verrouillées, modifiées ou impossibles à vérifier sont conservés. Seules les branches de tâches conformes au nommage configuré sont traitées. Aucune sauvegarde n’est créée ; l’âge, l’activité et la stabilité du contenu sont recontrôlés sous verrou avant la suppression. Les branches, les journaux centraux et les documents partagés sont conservés. Aucun fetch, arrêt de processus ou nettoyage global des métadonnées Git. Une vérification de processus protégé peut nécessiter une lecture ciblée avec sudo, comme worktree_remove.sh.
 
 Les refus préalables sont affichés comme CONSERVÉ. Une suppression qui échoue est signalée par ÉCHEC et un code de sortie non nul ; les autres tâches continuent à être examinées.
 

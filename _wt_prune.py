@@ -1,4 +1,4 @@
-"""Retirer les worktrees de tâches sans activité locale récente, branches conservées."""
+"""Supprimer les worktrees et leurs dossiers sans sauvegarde, branches conservées."""
 import argparse
 import datetime
 import os
@@ -79,7 +79,7 @@ def prune(days=20, dry_run=False):
               ('CANDIDAT' if dry_run else 'SUPPRESSION', root, date), flush=True)
         if not dry_run:
             try:
-                removal.remove(task, guard=lambda root, branch: eligible(root, branch, cutoff, current))
+                removal.remove(task, guard=lambda root, branch: eligible(root, branch, cutoff, current), create_backup=False)
             except (ToolError, OSError) as error:
                 print('ÉCHEC %s : %s' % (root, error), file=sys.stderr, flush=True)
                 failures += 1
@@ -92,7 +92,7 @@ def prune(days=20, dry_run=False):
 def main():
     parser = argparse.ArgumentParser(prog='worktree_prune', description=__doc__)
     parser.add_argument('days', nargs='?', type=int, default=20, help='Jours sans activité (défaut : 20)')
-    parser.add_argument('--dry-run', action='store_true', help='Afficher les candidats sans sauvegarde ni suppression')
+    parser.add_argument('--dry-run', action='store_true', help='Afficher les candidats sans suppression (désactivé par défaut : suppression réelle sans sauvegarde)')
     args = parser.parse_args()
     if args.days < 1: parser.error('days doit être strictement positif')
     # git status ne doit pas rafraîchir l'index et créer une fausse activité.

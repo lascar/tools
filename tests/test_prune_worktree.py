@@ -38,7 +38,27 @@ class PruneTests(unittest.TestCase):
         self.assertEqual(prune.prune(), 0)
         self.assertFalse(self.root.exists())
         self.fixture.fixture.git(self.main, 'rev-parse', self.fixture.branch)
-        self.assertTrue(list((self.main / 'doc/worktree-backups').glob('*/worktree.tar')))
+        self.assertFalse((self.main / 'doc/worktree-backups').exists())
+
+    def test_ignored_files_removed_without_backup_and_shared_target_kept(self):
+        doc = self.root / 'doc'
+        doc.mkdir()
+        (doc / 'ignored.txt').write_text('local only')
+        (doc / 'shared').symlink_to(self.main / 'tracked.txt')
+        self.age()
+        with patch.object(prune.removal, 'backup', side_effect=AssertionError('archive interdite')):
+            self.assertEqual(prune.prune(), 0)
+        self.assertFalse(self.root.exists())
+        self.assertTrue((self.main / 'tracked.txt').exists())
+        self.assertNotIn(str(self.root), self.fixture.fixture.git(self.main, 'worktree', 'list', '--porcelain'))
+        self.assertFalse((self.main / 'doc/worktree-backups').exists())
+
+    def test_untracked_files_are_preserved_without_backup(self):
+        (self.root / 'unfinished.txt').write_text('local work')
+        self.age()
+        self.assertEqual(prune.prune(), 0)
+        self.assertTrue((self.root / 'unfinished.txt').exists())
+        self.assertIn('CONSERVÉ', self.output.getvalue())
 
     def test_preview_does_not_archive_or_remove(self):
         self.age()
@@ -102,15 +122,15 @@ class PruneTests(unittest.TestCase):
         self.assertTrue(self.root.exists())
         self.assertIn('conteneur', self.output.getvalue())
 
-    def test_activity_during_backup_prevents_removal(self):
+    def test_activity_during_checks_prevents_removal(self):
         self.age()
-        original = prune.removal.backup
+        original = prune.removal.inventory
         def activity(*args):
             saved = original(*args)
             admin = Path(prune.value(self.root, 'rev-parse', '--path-format=absolute', '--git-dir'))
             os.utime(admin / 'HEAD', None)
             return saved
-        with patch.object(prune.removal, 'backup', side_effect=activity), contextlib.redirect_stderr(self.output):
+        with patch.object(prune.removal, 'inventory', side_effect=activity), contextlib.redirect_stderr(self.output):
             self.assertEqual(prune.prune(), 1)
         self.assertTrue(self.root.exists())
 

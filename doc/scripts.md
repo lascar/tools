@@ -35,16 +35,24 @@ worktree_prune [days=20] [--dry-run]
 worktree_prune.sh [days=20] [--dry-run]
 ```
 
-Retire les worktrees de tâches sans activité locale depuis le nombre de jours indiqué (entier strictement positif). `--dry-run` affiche les candidats sans sauvegarde ni suppression. Protège le dépôt principal, le worktree courant, les tâches ouvertes, modifiées, verrouillées et les situations impossibles à vérifier. L'activité correspond au maximum des dates de modification des fichiers locaux, des métadonnées Git propres au worktree, des journaux centraux et des traces d'atelier. Les liens vers les dossiers partagés ne sont pas parcourus. Une lecture passée seule n'est pas toujours détectable.
+Arguments et valeurs par défaut :
 
-Réutilise la suppression avec archive complète vérifiée de `worktree_remove.sh` et recontrôle l'âge sous verrou et après sauvegarde. Conserve les branches, journaux et documents partagés. Les refus sont détaillés ; une suppression en échec donne un code de sortie non nul.
+- `days` : argument positionnel facultatif, **20 jours** par défaut ; entier strictement positif.
+- `--dry-run` : option **désactivée par défaut**. Si elle est présente, affiche les candidats sans suppression.
+- Sans aucun argument, `worktree_prune` équivaut à `worktree_prune 20` : **suppression réelle sans sauvegarde**, des worktrees éligibles.
+
+La suppression retire à la fois l’enregistrement Git du worktree **et son répertoire physique avec tout son contenu local**. Aucune archive n’est créée. La branche conserve les fichiers committés, mais pas les fichiers ignorés locaux : ceux-ci sont effacés avec le dossier. Les modifications Git et fichiers non suivis bloquent la suppression. Le résultat n’est considéré comme réussi que lorsque le répertoire et l’enregistrement Git ont disparu. Les cibles des liens symboliques vers les documents partagés restent intactes.
+
+Retire les worktrees de tâches sans activité locale depuis le nombre de jours indiqué (entier strictement positif). `--dry-run` affiche les candidats sans suppression. Protège le dépôt principal, le worktree courant, les tâches ouvertes, modifiées, verrouillées et les situations impossibles à vérifier. L'activité correspond au maximum des dates de modification des fichiers locaux, des métadonnées Git propres au worktree, des journaux centraux et des traces d'atelier. Les liens vers les dossiers partagés ne sont pas parcourus. Une lecture passée seule n'est pas toujours détectable.
+
+Réutilise les contrôles de suppression de `worktree_remove.sh`, en désactivant la création d’archive pour `worktree_prune`. Recontrôle l’âge, l’activité et la stabilité du contenu sous verrou avant suppression. La commande séparée `worktree_remove.sh` conserve sa sauvegarde habituelle. Conserve les branches, journaux et documents partagés. Les refus sont détaillés ; une suppression en échec donne un code de sortie non nul.
 
 Exemples depuis le dépôt principal ou un worktree de tâche :
 
 ```bash
 worktree_prune --dry-run      # aperçu avec le seuil par défaut de 20 jours
 worktree_prune 30 --dry-run   # aperçu avec un seuil de 30 jours
-worktree_prune 30             # retirer les worktrees éligibles après sauvegarde
+worktree_prune 30             # retirer les worktrees éligibles sans sauvegarde
 ```
 
 ### worktree_new.sh
