@@ -160,6 +160,6 @@ push.sh
 <p>Cette action est distincte de la fermeture. Depuis le dépôt principal et uniquement lorsque tu as décidé de retirer le dossier :</p>
 <pre><code>worktree_remove.sh 1234_ma_tache
 </code></pre>
-<p>Le script exige un worktree inactif et un état Git compatible, archive les fichiers locaux et ignorés avec vérification, puis retire le dossier. Les permissions peuvent nécessiter une opération privilégiée ciblée. La branche et le journal central sont conservés ; aucune branche distante n’est supprimée.</p>
-<p>Les patchs restent dans WT_MAIN_ROOT/doc. L’archive complète du worktree est une autre sauvegarde, distincte des patchs et située dans le dossier de sauvegardes du projet.</p>
+<p>Le script exige un worktree inactif, sans modifications Git ni fichiers non suivis, puis supprime son enregistrement Git et son dossier <strong>sans sauvegarde</strong>. Les fichiers ignorés locaux sont effacés avec le dossier ; seuls les fichiers committés sont conservés dans la branche. Les permissions peuvent nécessiter une opération privilégiée ciblée. La branche et le journal central sont conservés ; aucune branche distante n’est supprimée.</p>
+<p>Le nom de tâche est obligatoire et la suppression est réelle, sans option d’aperçu. <code>worktree_close.sh</code> ferme seulement l’atelier et conserve son dossier ; <code>worktree_remove.sh</code> supprime un dossier ciblé ; <code>worktree_prune</code> supprime les dossiers éligibles selon leur ancienneté. Les patchs existants restent dans WT_MAIN_ROOT/doc.</p>
 </main></body></html>

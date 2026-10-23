@@ -21,7 +21,7 @@ Inventaire actualisé le 23 octobre 2026 : **29 commandes et 2 fichiers de suppo
 - [worktree_switch.sh](doc/scripts.md#worktree_switchsh) — afficher un terminal existant.
 - [worktree_status.sh](doc/scripts.md#worktree_statussh) — afficher l’état Git des worktrees, leurs ateliers ouverts ou fermés et le total ouvert.
 - [worktree_close.sh](doc/scripts.md#worktree_closesh) — fermer un atelier ; sans argument depuis le principal, fermer tous les ateliers ouverts en conservant les worktrees.
-- [worktree_remove.sh](doc/scripts.md#worktree_removesh) — retirer explicitement un worktree fermé, après archive vérifiée.
+- [worktree_remove.sh](doc/scripts.md#worktree_removesh) — supprimer explicitement un worktree fermé et son dossier, sans sauvegarde.
 - [worktree_prune / worktree_prune.sh](doc/scripts.md#worktree_prunesh) — retirer les worktrees inactifs depuis 20 jours ; `--dry-run` affiche les candidats.
 - [change_branch.sh](doc/scripts.md#change_branchsh) — rejoindre un worktree inactif dans le terminal appelant, après actualisation et fusion.
 

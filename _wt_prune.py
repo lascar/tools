@@ -79,7 +79,7 @@ def prune(days=20, dry_run=False):
               ('CANDIDAT' if dry_run else 'SUPPRESSION', root, date), flush=True)
         if not dry_run:
             try:
-                removal.remove(task, guard=lambda root, branch: eligible(root, branch, cutoff, current), create_backup=False)
+                removal.remove(task, guard=lambda root, branch: eligible(root, branch, cutoff, current))
             except (ToolError, OSError) as error:
                 print('ÉCHEC %s : %s' % (root, error), file=sys.stderr, flush=True)
                 failures += 1

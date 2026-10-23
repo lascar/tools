@@ -3,7 +3,6 @@ import json
 import os
 from pathlib import Path
 import subprocess
-import tarfile
 import unittest
 from unittest.mock import patch
 import test_worktrees
@@ -34,18 +33,14 @@ class RemoveTests(unittest.TestCase):
         self.scope.enter_context(patch.object(removal, 'context', side_effect=lambda path=None, **kw: original(path or self.main, **kw)))
         self.scope.enter_context(patch.object(removal.runtime, 'app_mounts', return_value=[]))
 
-    def test_removes_clean_worktree_keeps_branch_and_archives_ignored_content(self):
+    def test_removes_clean_worktree_and_ignored_content_without_archive(self):
         doc = self.root / 'doc'; doc.mkdir()
         (doc / 'notes.txt').write_text('notes privées')
         (doc / 'shared').symlink_to(self.main / 'tracked.txt')
         removal.remove(self.task)
         self.assertFalse(self.root.exists())
         self.assertEqual(self.fixture.git(self.main, 'rev-parse', self.branch), self.fixture.git(self.main, 'rev-parse', 'master'))
-        archive = next((self.main / 'doc/worktree-backups').glob('*/worktree.tar'))
-        self.assertEqual(archive.parent.stat().st_mode & 0o777, 0o700)
-        with tarfile.open(archive) as tar:
-            self.assertEqual(tar.extractfile('doc/notes.txt').read().decode(), 'notes privées')
-            self.assertTrue(tar.getmember('doc/shared').issym())
+        self.assertFalse((self.main / 'doc/worktree-backups').exists())
         self.assertTrue((self.main / 'tracked.txt').exists())
 
     def test_dirty_worktree_is_preserved(self):
@@ -53,6 +48,13 @@ class RemoveTests(unittest.TestCase):
         with self.assertRaisesRegex(c.ToolError, 'Modifications Git'):
             removal.remove(self.task)
         self.assertTrue(self.root.exists())
+
+    def test_untracked_work_is_preserved(self):
+        (self.root / 'unfinished.txt').write_text('local work')
+        with self.assertRaisesRegex(c.ToolError, 'fichiers non suivis'):
+            removal.remove(self.task)
+        self.assertTrue((self.root / 'unfinished.txt').exists())
+        self.assertFalse((self.main / 'doc/worktree-backups').exists())
 
     def test_docker_activity_blocks(self):
         with patch.object(removal.runtime, 'app_mounts', return_value=[('web', self.root, 'id', True)]):
@@ -104,16 +106,14 @@ class RemoveTests(unittest.TestCase):
         with self.assertRaisesRegex(c.ToolError, 'lien symbolique'):
             removal.remove(self.task)
 
-    def test_residual_worktree_is_archived_and_removed(self):
+    def test_residual_worktree_is_removed_without_archive(self):
         marker = (self.root / '.git').read_text()
         self.fixture.git(self.main, 'worktree', 'remove', str(self.root))
         self.root.mkdir(); (self.root / '.git').write_text(marker)
         (self.root / 'notes.txt').write_text('reste')
         removal.remove(self.task)
         self.assertFalse(self.root.exists())
-        archive = next((self.main / 'doc/worktree-backups').glob('*/worktree.tar'))
-        with tarfile.open(archive) as tar:
-            self.assertEqual(tar.extractfile('notes.txt').read(), b'reste')
+        self.assertFalse((self.main / 'doc/worktree-backups').exists())
 
     def test_unidentified_residue_is_preserved(self):
         self.fixture.git(self.main, 'worktree', 'remove', str(self.root))
@@ -121,32 +121,32 @@ class RemoveTests(unittest.TestCase):
         with self.assertRaisesRegex(c.ToolError, 'marqueur Git'):
             removal.remove(self.task)
 
-    def test_backup_failure_prevents_git_remove(self):
-        with patch.object(removal, 'backup', side_effect=OSError('disque plein')):
+    def test_inventory_failure_prevents_git_remove(self):
+        with patch.object(removal, 'inventory', side_effect=OSError('lecture impossible')):
             with self.assertRaises(OSError): removal.remove(self.task)
         self.assertTrue(self.root.exists())
         self.assertIn(str(self.root), self.fixture.git(self.main, 'worktree', 'list'))
 
-    def test_permission_error_uses_only_targeted_sudo_after_backup(self):
+    def test_permission_error_uses_only_targeted_sudo_without_backup(self):
         marker = (self.root / '.git').read_text()
         self.fixture.git(self.main, 'worktree', 'remove', str(self.root))
         self.root.mkdir(); (self.root / '.git').write_text(marker)
         original = removal.shutil.rmtree
         def sudo(args, **kw):
             self.assertEqual(args, ['sudo', 'rm', '-r', '--', self.root])
-            self.assertTrue(list((self.main / 'doc/worktree-backups').glob('*/manifest.json')))
+            self.assertFalse((self.main / 'doc/worktree-backups').exists())
             original(self.root)
         with patch.object(removal.shutil, 'rmtree', side_effect=PermissionError()), patch.object(removal, 'run', side_effect=sudo) as call:
             removal.remove(self.task)
             call.assert_called_once()
 
-    def test_source_changed_during_backup_is_preserved(self):
-        original = removal.backup
+    def test_source_changed_during_checks_is_preserved(self):
+        original = removal.inventory
         def changing(*args):
             result = original(*args)
-            (self.root / 'tracked.txt').write_text('modifié après archive')
+            (self.root / 'tracked.txt').write_text('modifié après inventaire')
             return result
-        with patch.object(removal, 'backup', side_effect=changing):
+        with patch.object(removal, 'inventory', side_effect=changing):
             with self.assertRaisesRegex(c.ToolError, 'changé'):
                 removal.remove(self.task)
         self.assertTrue(self.root.exists())

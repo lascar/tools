@@ -1,4 +1,4 @@
-"""Suppression ciblée d'un worktree fermé, avec archive locale vérifiée."""
+"""Suppression ciblée d’un worktree fermé et de son dossier, sans sauvegarde."""
 import argparse
 import hashlib
 import os
@@ -6,8 +6,6 @@ from pathlib import Path
 import shutil
 import stat
 import sys
-import tarfile
-import tempfile
 from _wt_common import *
 import _wt_atelier as atelier
 import _wt_docker as runtime
@@ -116,33 +114,7 @@ def inventory(root):
     return entries
 
 
-def backup(root, branch, sha):
-    base = MAIN / setting('DOCUMENTS_DIR', 'doc') / 'worktree-backups'
-    base.mkdir(parents=True, exist_ok=True)
-    dest = Path(tempfile.mkdtemp(prefix=root.name + '-', dir=base))
-    before = inventory(root)
-    archive = dest / 'worktree.tar'
-    # Tout le contenu est conservé, y compris les secrets locaux ; dossier privé 0700.
-    with tarfile.open(archive, 'w', dereference=False) as tar:
-        for name in before: tar.add(root / name, arcname=name, recursive=False)
-    with tarfile.open(archive, 'r') as tar:
-        checked = {}
-        for member in tar:
-            if member.isdir(): checked[member.name] = ['dir', member.mode]
-            elif member.issym(): checked[member.name] = ['link', member.linkname]
-            elif member.isfile():
-                with tar.extractfile(member) as stream: checksum = digest(stream)
-                checked[member.name] = ['file', member.size, checksum, member.mode]
-            else: raise ToolError('Entrée archive non prise en charge : %s' % member.name)
-    if checked != before or inventory(root) != before:
-        raise ToolError('Contenu modifié pendant la sauvegarde ou archive incohérente ; aucune suppression.')
-    atomic(dest / 'manifest.json', {'worktree': str(root), 'branch': branch, 'sha': sha,
-                                  'created_at': now(), 'entries': before})
-    print('Sauvegarde vérifiée : %s' % archive, flush=True)
-    return before
-
-
-def remove(task, guard=None, create_backup=True):
+def remove(task, guard=None):
     context()
     with locked(STATE / 'worktree-create.lock'):
         root, branch, sha, registered = target(task)
@@ -152,8 +124,8 @@ def remove(task, guard=None, create_backup=True):
             inactive(root)
             if registered: clean(root)
             identity = (root.stat().st_dev, root.stat().st_ino)
-            # Le prune sans archive conserve les controles de stabilite du contenu.
-            saved = backup(root, branch, sha) if create_backup else inventory(root)
+            # Verifier la stabilite du contenu avant suppression, sans creer de copie.
+            saved = inventory(root)
             if target(task) != (root, branch, sha, registered) or inventory(root) != saved:
                 raise ToolError('La cible a changé ; suppression annulée.')
             inactive(root)
@@ -175,7 +147,7 @@ def remove(task, guard=None, create_backup=True):
                     print('Permissions insuffisantes : sudo est requis pour supprimer ce dossier uniquement.', flush=True)
                     run(['sudo', 'rm', '-r', '--', root])
             if root.exists() or any(Path(r['worktree']) == root for r in worktrees()):
-                raise ToolError('Suppression incomplète.' + (' La sauvegarde est conservée.' if create_backup else ''))
+                raise ToolError('Suppression incomplète.')
             print('Worktree supprimé ; branche conservée : %s' % branch)
 
 

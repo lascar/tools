@@ -46,8 +46,7 @@ class PruneTests(unittest.TestCase):
         (doc / 'ignored.txt').write_text('local only')
         (doc / 'shared').symlink_to(self.main / 'tracked.txt')
         self.age()
-        with patch.object(prune.removal, 'backup', side_effect=AssertionError('archive interdite')):
-            self.assertEqual(prune.prune(), 0)
+        self.assertEqual(prune.prune(), 0)
         self.assertFalse(self.root.exists())
         self.assertTrue((self.main / 'tracked.txt').exists())
         self.assertNotIn(str(self.root), self.fixture.fixture.git(self.main, 'worktree', 'list', '--porcelain'))

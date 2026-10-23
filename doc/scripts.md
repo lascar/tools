@@ -45,7 +45,7 @@ La suppression retire à la fois l’enregistrement Git du worktree **et son ré
 
 Retire les worktrees de tâches sans activité locale depuis le nombre de jours indiqué (entier strictement positif). `--dry-run` affiche les candidats sans suppression. Protège le dépôt principal, le worktree courant, les tâches ouvertes, modifiées, verrouillées et les situations impossibles à vérifier. L'activité correspond au maximum des dates de modification des fichiers locaux, des métadonnées Git propres au worktree, des journaux centraux et des traces d'atelier. Les liens vers les dossiers partagés ne sont pas parcourus. Une lecture passée seule n'est pas toujours détectable.
 
-Réutilise les contrôles de suppression de `worktree_remove.sh`, en désactivant la création d’archive pour `worktree_prune`. Recontrôle l’âge, l’activité et la stabilité du contenu sous verrou avant suppression. La commande séparée `worktree_remove.sh` conserve sa sauvegarde habituelle. Conserve les branches, journaux et documents partagés. Les refus sont détaillés ; une suppression en échec donne un code de sortie non nul.
+Utilise la même suppression sans sauvegarde que `worktree_remove.sh`. Recontrôle l’âge, l’activité et la stabilité du contenu sous verrou avant suppression. Conserve les branches, journaux et documents partagés. Les refus sont détaillés ; une suppression en échec donne un code de sortie non nul.
 
 Exemples depuis le dépôt principal ou un worktree de tâche :
 
@@ -115,9 +115,11 @@ Un refus, une commande non arrêtée ou un échec de sauvegarde bloque la suite.
 worktree_remove.sh <tâche>
 ```
 
-À lancer depuis le dépôt principal, hors du dossier à retirer, après décision explicite de suppression. Vérifie l’identité du worktree, l’absence d’activité et les changements Git, puis crée et relit une archive des fichiers locaux, y compris ignorés. Retire ensuite le worktree et son dossier.
+À lancer depuis le dépôt principal, hors du dossier à retirer, après décision explicite de suppression. Vérifie l’identité du worktree, l’absence d’activité, les changements Git et la stabilité du contenu. Supprime ensuite l’enregistrement Git et le répertoire physique avec son contenu, **sans sauvegarde ni archive**. Les fichiers ignorés locaux sont effacés ; la branche conserve seulement les fichiers committés. Les cibles des liens symboliques vers les dossiers partagés sont conservées.
 
-Conserve la branche et le journal central. Ne supprime aucune branche distante. Refuse une cible ambiguë, verrouillée, active ou modifiée. Un retrait partiel ou un problème de permissions peut nécessiter une intervention privilégiée ciblée, après sauvegarde vérifiée.
+Conserve la branche et le journal central. Ne supprime aucune branche distante. Refuse une cible ambiguë, verrouillée, active ou un worktree contenant des modifications Git ou des fichiers non suivis. Un retrait partiel ou un problème de permissions peut nécessiter une intervention privilégiée ciblée. Un dossier déjà désenregistré n’est traité que si son ancien marqueur Git permet de l’identifier ; son contenu résiduel est alors effacé sans sauvegarde.
+
+`<tâche>` est obligatoire : aucune tâche n’est sélectionnée par défaut. Il n’y a pas d’option `--dry-run` pour cette commande ; l’exécution supprime réellement le dossier ciblé. Pour fermer l’atelier tout en conservant le dossier, utilise `worktree_close.sh <tâche>`. `worktree_prune` applique la même suppression aux worktrees éligibles selon leur ancienneté.
 
 ### change_branch.sh
 
