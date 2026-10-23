@@ -28,6 +28,30 @@ def target_for(task):
     return root, branch
 
 
+def select(task):
+    """Basculer localement si aucun autre worktree ne porte la branche."""
+    source, current, _ = context()
+    branch = task_branch(task)
+    # Partager le verrou de création pour ne pas rattacher la branche ailleurs
+    # entre la vérification et le checkout. stdout est réservé au chemin Bash.
+    with locked(STATE / 'worktree-create.lock'):
+        rows = [row for row in worktrees() if row.get('branch') == 'refs/heads/' + branch]
+        if rows and (len(rows) != 1 or Path(rows[0]['worktree']) != source):
+            return
+        if rows and ('locked' in rows[0] or 'prunable' in rows[0]):
+            raise ToolError('Worktree verrouillé ou indisponible.')
+        if rows and source != MAIN:
+            return
+        if current == branch:
+            print(source)
+            return
+        if git(source, 'show-ref', '--verify', '--quiet', 'refs/heads/' + branch, check=False).returncode:
+            raise ToolError('Branche locale absente : %s.' % branch)
+        # Checkout ordinaire : Git refuse lui-même d'écraser le travail local.
+        run(['git', '-C', source, 'checkout', branch], stdout=sys.stderr)
+        print(source)
+
+
 def clean(root):
     changes = git(root, 'status', '--porcelain', '--untracked-files=all').stdout
     if changes:
@@ -75,13 +99,18 @@ def idle(root):
         try:
             if proc.stat().st_uid != os.getuid():
                 continue
+            # Le serveur MCP peut rester ouvert entre deux sessions ; il ne
+            # constitue pas une commande de travail bloquant l'actualisation.
+            # Le filtrer avant cwd evite aussi une lecture sudo inutile.
+            name = (proc / 'comm').read_text().strip()
+            if name == 'codebase-memory':
+                continue
             # Reutiliser la lecture privilegiee ciblee des processus proteges.
             # stdout reste reserve au chemin retourne a la fonction Bash.
             with contextlib.redirect_stdout(sys.stderr):
                 cwd = process_directory(proc)
             if cwd is None or (cwd != root and root not in cwd.parents):
                 continue
-            name = (proc / 'comm').read_text().strip()
             if name not in ('bash', 'sh', 'dash', 'zsh', 'fish'):
                 raise ToolError('Commande active dans %s : %s (PID %s).' % (root, name, proc.name))
         except (FileNotFoundError, ProcessLookupError):
@@ -132,26 +161,27 @@ def merge(task):
 
 
 def home():
-    # Revenir dans le worktree principal sans toucher aux branches des taches.
+    # Un checkout local peut avoir placé une tâche dans le dépôt principal.
     if context(MAIN)[1] != BASE_BRANCH:
-        raise ToolError(f'Le dépôt principal doit déjà être sur {BASE_BRANCH} ; aucun changement de branche automatique.')
+        with locked(STATE / 'worktree-create.lock'):
+            run(['git', '-C', MAIN, 'checkout', BASE_BRANCH], stdout=sys.stderr)
     print(MAIN)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('phase', choices=('prepare', 'merge', 'home'))
+    parser.add_argument('phase', choices=('select', 'prepare', 'merge', 'home'))
     parser.add_argument('task', nargs='?')
     args = parser.parse_args()
     if args.phase != 'home' and not args.task:
-        parser.error('la tâche est obligatoire pour prepare et merge')
+        parser.error('la tâche est obligatoire pour select, prepare et merge')
     if args.phase == 'home' and args.task:
         parser.error('home ne prend pas de tâche')
     try:
         if args.phase == 'home':
             home()
         else:
-            (prepare if args.phase == 'prepare' else merge)(args.task)
+            {'select': select, 'prepare': prepare, 'merge': merge}[args.phase](args.task)
     except (ToolError, OSError, subprocess.TimeoutExpired, ValueError) as error:
         print('ERREUR : %s' % error, file=sys.stderr)
         return 1

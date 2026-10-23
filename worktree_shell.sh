@@ -35,6 +35,11 @@ change_branch.sh() {
     echo 'Usage : change_branch.sh [numéro_nom | t_numéro_nom]' >&2
     return 2
   fi
+  target="$(python3 "$_worktree_tools_dir/change_branch.py" select "$1")" || return
+  if [[ -n "$target" ]]; then
+    cd -- "$target"
+    return
+  fi
   target="$(python3 "$_worktree_tools_dir/change_branch.py" prepare "$1")" || return
   cd -- "$target" || return
   python3 "$_worktree_tools_dir/change_branch.py" merge "$1"

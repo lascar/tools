@@ -85,9 +85,15 @@ change_branch.sh
 
 change_branch.sh [tâche]
 
-Fonction Bash à charger avec worktree_shell.sh. Vise une branche déjà rattachée à un worktree, sans créer de branche ni de worktree. Sans argument, revient dans le dépôt principal sur sa branche de référence (master pour bo.facile), sans pull ni fusion, en conservant les modifications locales. Si le principal n’est pas sur cette branche, le retour est refusé sans déplacer le terminal.
+Fonction Bash à charger avec worktree_shell.sh. Sans worktree rattaché, bascule sur la branche locale existante dans le dépôt courant, par un simple git checkout, sans pull ni fusion. Ne crée ni branche ni worktree. Une branche absente localement est refusée.
 
-Contrôle la propreté du départ, du principal et de la cible ; refuse l’activité détectée dans la cible ; actualise la branche principale par pull en avance rapide ; déplace le terminal dans la tâche puis y fusionne la base. Le principal doit déjà être sur sa branche principale. Aucun atelier ni serveur n’est lancé.
+Sans argument, revient dans le dépôt principal sur sa branche de référence (master pour bo.facile), sans pull ni fusion. Si le principal est sur une autre branche, effectue un simple git checkout.
+
+La bascule locale et le retour à la branche de référence n’inspectent ni les processus, ni Docker, ni les ateliers et ne demandent pas de sudo. Git conserve les modifications compatibles et refuse le checkout si des fichiers locaux seraient écrasés.
+
+Avec un worktree de tâche existant, contrôle la propreté du départ, du principal et de la cible ; refuse l’activité détectée dans la cible ; actualise la branche principale par pull en avance rapide ; déplace le terminal dans la tâche puis y fusionne la base. Le principal doit déjà être sur sa branche principale. Aucun atelier ni serveur n’est lancé.
+
+Le processus codebase-memory est ignoré par ce contrôle : il peut rester ouvert entre deux sessions et ne bloque pas l’actualisation. Son dossier n’est pas inspecté et ne déclenche donc pas de demande sudo. Les autres commandes actives restent bloquantes.
 
 Pour un processus de ton utilisateur dont le répertoire courant est protégé, la vérification utilise sudo readlink uniquement sur /proc/<PID>/cwd et peut demander ton mot de passe. Un processus extérieur au worktree ne bloque pas la commande ; une activité dans le worktree ou une vérification impossible reste bloquante.
 

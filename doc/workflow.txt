@@ -91,7 +91,9 @@ Depuis un terminal ayant chargé worktree_shell.sh :
 change_branch.sh 1234_ma_tache
 change_branch.sh                  # Revenir dans le dépôt principal sur sa branche de référence
 
-La tâche doit déjà avoir un worktree. La commande refuse les changements locaux et l’activité détectée dans la cible, vérifie le dépôt principal propre sur sa branche principale, y effectue le pull en avance rapide, fait cd vers le worktree puis y fusionne la base.
+Si la branche locale existe sans worktree, la commande bascule directement dessus dans le dépôt courant par un simple git checkout, sans pull ni fusion et sans créer de branche ou de worktree. Sans argument, elle revient au dépôt principal et rétablit sa branche de référence si nécessaire, par un simple git checkout.
+
+Si la tâche possède déjà un worktree, la commande refuse les changements locaux et l’activité détectée dans la cible, vérifie le dépôt principal propre sur sa branche principale, y effectue le pull en avance rapide, fait cd vers le worktree puis y fusionne la base.
 
 Elle ne démarre pas de serveur. Un refus avant déplacement conserve ton dossier ; un conflit de fusion te laisse dans la tâche pour le résoudre. Après succès, tu restes dans la tâche pour travailler. cd - revient au dossier précédent.
 

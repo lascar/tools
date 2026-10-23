@@ -126,7 +126,9 @@ Le statut et la fermeture collective concernent les ateliers gérés par les out
 
 `worktree_reach.sh` crée ou rattache le worktree si nécessaire, ouvre un atelier fermé, ou affiche un atelier vivant. `--no-update` évite l’actualisation Git lors d’une ouverture. Sans tâche, la commande affiche le terminal principal existant sans actualisation ni démarrage du runtime.
 
-`change_branch.sh 1234_ma_tache` utilise un worktree déjà rattaché : contrôles d’inactivité et de propreté, actualisation en avance rapide de la branche principale, véritable `cd` dans le terminal appelant, puis fusion dans la branche de tâche. Un refus préalable conserve le dossier initial ; un conflit laisse le terminal dans le worktree cible. La fonction Bash est obligatoire pour ce déplacement.
+Sans worktree rattaché, `change_branch.sh 1234_ma_tache` bascule sur la branche locale existante dans le dépôt courant, par un simple `git checkout`, sans pull ni fusion et sans créer de branche ou de worktree. Sans argument, la commande revient dans le dépôt principal et rétablit sa branche de référence si nécessaire, par un simple `git checkout`.
+
+Avec un worktree déjà rattaché, `change_branch.sh 1234_ma_tache` conserve le parcours suivant : contrôles d’inactivité et de propreté, actualisation en avance rapide de la branche principale, véritable `cd` dans le terminal appelant, puis fusion dans la branche de tâche. Un refus préalable conserve le dossier initial ; un conflit laisse le terminal dans le worktree cible. La fonction Bash est obligatoire pour ce déplacement.
 
 `desc_git.sh <tâche>` produit le rapport Git dans le dossier de documentation central, même sans worktree rattaché : il lit la branche locale ou, à défaut, sa référence distante déjà connue. Sans argument, `desc_git.sh` décrit le worktree courant. Le rapport commence par les fichiers modifiés, puis détaille les commits dont le sujet commence par le nom exact de la tâche, y compris ceux déjà intégrés dans la branche principale. La commande ne change pas de branche et ne crée pas de worktree.
 
@@ -168,7 +170,6 @@ python3 -m compileall -q .
 Les tests emploient des dépôts temporaires et simulent Docker et les actions graphiques. Un test ouvre une socket locale pour vérifier la détection d’un port occupé. Le profil générique est testé séparément avec un autre nom de projet, une autre branche principale et d’autres services.
 
 Les outils métier et de base de données, les documents et anciennes copies sont conservés hors de cette boîte à outils, dans le dossier voisin `tools-projet/`. Le générateur des guides personnels se trouve également dans ce dossier.
-
 
 ## Actualiser la documentation locale
 

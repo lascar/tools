@@ -1,6 +1,7 @@
 """Vrais dépôts Git temporaires ; aucun serveur ni dépôt réel modifié."""
 import contextlib
 import io
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -133,6 +134,8 @@ class ChangeBranchTests(unittest.TestCase):
                 cb.prepare(self.task)
             run.assert_not_called()
 
+
+
     def test_real_process_in_target_refused(self):
         child = subprocess.Popen(['sleep', '30'], cwd=self.root)
         try:
@@ -157,6 +160,17 @@ class ChangeBranchTests(unittest.TestCase):
         self.enterContext(patch.object(Path, 'resolve', resolve))
         self.enterContext(patch.object(Path, 'iterdir', iterdir))
         return proc
+
+    def test_memory_server_does_not_block_pull_or_merge_or_require_sudo(self):
+        proc = self.protected_process()
+        (proc / 'comm').write_text('codebase-memory\n')
+        head = self.upstream()
+        with patch.object(cb, 'process_directory', side_effect=AssertionError('lecture cwd interdite')), \
+                patch.object(removal, 'run', side_effect=AssertionError('sudo interdit')):
+            self.prepare()
+            os.chdir(self.root)
+            cb.merge(self.task)
+        self.assertEqual(self.git(self.root, 'rev-parse', 'HEAD'), head)
 
     def test_protected_process_outside_worktree_allows_check_and_preserves_stdout(self):
         proc = self.protected_process()
@@ -184,6 +198,17 @@ class ChangeBranchTests(unittest.TestCase):
             with self.assertRaisesRegex(common.ToolError, 'sudo refusé'):
                 cb.prepare(self.task)
             run.assert_not_called()
+
+    def test_local_checkout_and_home_do_not_inspect_processes_or_docker(self):
+        task = '5678_sans_worktree'
+        branch = 'feature/' + task
+        self.git(self.main, 'branch', branch)
+        with patch.object(cb, 'idle', side_effect=AssertionError('idle interdit')), patch.object(cb, 'guarded', side_effect=AssertionError('atelier interdit')), patch.object(runtime, 'docker', side_effect=AssertionError('Docker interdit')):
+            with contextlib.redirect_stdout(io.StringIO()):
+                cb.select(task)
+                self.assertEqual(self.git(self.main, 'branch', '--show-current'), branch)
+                cb.home()
+            self.assertEqual(self.git(self.main, 'branch', '--show-current'), 'master')
 
     def test_git_operation_refused_with_clean_index(self):
         marker = Path(self.git(self.root, 'rev-parse', '--path-format=absolute', '--git-path', 'CHERRY_PICK_HEAD'))
@@ -255,15 +280,93 @@ class ChangeBranchTests(unittest.TestCase):
         self.assertEqual((self.root / 'tracked.txt').read_text(), 'unfinished task\n')
         self.assertEqual((self.main / 'untracked.txt').read_text(), 'unfinished main\n')
 
-    def test_shell_without_argument_refuses_wrong_main_branch_and_keeps_directory(self):
+    def test_shell_without_argument_preserves_compatible_dirty_main(self):
         self.git(self.main, 'checkout', '-qb', 'other')
+        (self.main / 'tracked.txt').write_text('unfinished main\n')
         env = dict(os.environ, WT_MAIN_ROOT=str(self.main))
         script = 'source "$1/worktree_shell.sh"; change_branch.sh; result=$?; printf "RESULT=%s\\nPWD=%s\\n" "$result" "$PWD"'
         result = subprocess.run(['bash', '--noprofile', '--norc', '-c', script, 'test', str(TOOLS)],
                                 cwd=self.root, env=env, text=True, capture_output=True, timeout=10)
-        self.assertIn('RESULT=1\nPWD=' + str(self.root), result.stdout)
-        self.assertIn('doit déjà être sur master', result.stderr)
-        self.assertEqual(self.git(self.main, 'branch', '--show-current'), 'other')
+        self.assertIn('RESULT=0\nPWD=' + str(self.main), result.stdout)
+        self.assertEqual((self.main / 'tracked.txt').read_text(), 'unfinished main\n')
+        self.assertEqual(self.git(self.main, 'branch', '--show-current'), 'master')
+
+    def test_select_local_branch_without_worktree_and_home(self):
+        task = '5678_sans_worktree'
+        branch = 'feature/' + task
+        self.git(self.main, 'branch', branch)
+        before = self.git(self.main, 'worktree', 'list', '--porcelain')
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            cb.select(task)
+        self.assertEqual(output.getvalue().strip(), str(self.main))
+        self.assertEqual(self.git(self.main, 'branch', '--show-current'), branch)
+        self.assertEqual(self.git(self.root, 'branch', '--show-current'), self.branch)
+        self.assertEqual(len(common.worktrees()), 2)
+        with contextlib.redirect_stdout(io.StringIO()):
+            cb.home()
+        self.assertEqual(self.git(self.main, 'branch', '--show-current'), 'master')
+        self.assertEqual(self.git(self.main, 'worktree', 'list', '--porcelain'), before)
+
+    def test_local_checkout_preserves_work_and_git_refuses_overwrite(self):
+        task = '5678_sans_worktree'
+        branch = 'feature/' + task
+        self.git(self.main, 'branch', branch)
+        (self.main / 'tracked.txt').write_text('local work\n')
+        with contextlib.redirect_stdout(io.StringIO()):
+            cb.select(task)
+            self.assertEqual((self.main / 'tracked.txt').read_text(), 'local work\n')
+            cb.home()
+        self.git(self.main, 'restore', 'tracked.txt')
+        self.git(self.main, 'checkout', branch)
+        (self.main / 'tracked.txt').write_text('branch work\n')
+        self.git(self.main, 'add', 'tracked.txt')
+        self.git(self.main, 'commit', '-qm', 'branch change')
+        self.git(self.main, 'checkout', 'master')
+        (self.main / 'tracked.txt').write_text('unfinished\n')
+        with self.assertRaises(common.ToolError):
+            cb.select(task)
+        self.assertEqual(self.git(self.main, 'branch', '--show-current'), 'master')
+        self.assertEqual((self.main / 'tracked.txt').read_text(), 'unfinished\n')
+        with self.assertRaisesRegex(common.ToolError, 'Branche locale absente'):
+            cb.select('9999_missing')
+
+    def test_select_existing_worktree_leaves_prepare_in_charge(self):
+        for source in (self.main, self.root):
+            os.chdir(source)
+            with patch.object(cb, 'run') as run, contextlib.redirect_stdout(io.StringIO()) as output:
+                cb.select(self.task)
+            self.assertEqual(output.getvalue(), '')
+            run.assert_not_called()
+
+    def test_select_from_task_worktree(self):
+        task = '5678_sans_worktree'
+        self.git(self.main, 'branch', 'feature/' + task)
+        os.chdir(self.root)
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            cb.select(task)
+        self.assertEqual(output.getvalue().strip(), str(self.root))
+        self.assertEqual(self.git(self.root, 'branch', '--show-current'), 'feature/' + task)
+        self.assertEqual(self.git(self.main, 'branch', '--show-current'), 'master')
+
+    def test_shell_switch_without_worktree_skips_pull_and_merge(self):
+        task = '5678_sans_worktree'
+        branch = 'feature/' + task
+        self.git(self.main, 'branch', branch)
+        # Sans remote utilisable, un pull accidentel ferait échouer la commande.
+        self.git(self.main, 'remote', 'remove', 'origin')
+        binaries = Path(self.temp.name) / 'bin'
+        binaries.mkdir()
+        docker = binaries / 'docker'
+        docker.write_text('#!/bin/sh\nexit 0\n')
+        docker.chmod(0o755)
+        (binaries / 'sitecustomize.py').write_text("from pathlib import Path\noriginal=Path.iterdir\ndef isolated(self):\n    return iter(()) if str(self)=='/proc' else original(self)\nPath.iterdir=isolated\n")
+        env = dict(os.environ, PYTHONPATH=str(binaries), WT_MAIN_ROOT=str(self.main), PATH=str(binaries)+':'+os.environ['PATH'])
+        script = 'source "$1/worktree_shell.sh"; change_branch.sh "$2"; result=$?; printf "RESULT=%s\\nPWD=%s\\n" "$result" "$PWD"; change_branch.sh; result=$?; printf "HOME=%s\\n" "$result"'
+        result = subprocess.run(['bash', '--noprofile', '--norc', '-c', script, 'test', str(TOOLS), task], cwd=self.main, env=env, text=True, capture_output=True, timeout=15)
+        self.assertIn('RESULT=0\nPWD='+str(self.main), result.stdout, result.stderr)
+        self.assertIn('HOME=0', result.stdout, result.stderr)
+        self.assertEqual(self.git(self.main, 'branch', '--show-current'), 'master')
+        self.assertEqual(len(common.worktrees()), 2)
 
     def test_missing_worktree_and_wrong_main_branch_refuse_before_pull(self):
         with patch.object(cb, 'run') as run:
