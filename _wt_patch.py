@@ -246,6 +246,14 @@ def offer(root):
         label = 'Dernière modification du fichier'
         if p.name.endswith('.wtpatch.zip'):
             m, index, _ = inspect_archive(p)
+            # Une actualisation peut changer HEAD avant la proposition des patchs.
+            # Conserver ces archives sans proposer une restauration impossible.
+            if m['branch'] != value(root, 'branch', '--show-current'):
+                print('Sauvegarde conservée, non proposée automatiquement (autre branche) : %s' % p)
+                continue
+            if m['head'] != value(root, 'rev-parse', 'HEAD'):
+                print('Sauvegarde conservée, non proposée automatiquement (commit de base différent) : %s' % p)
+                continue
             if already_present(root, m, index):
                 print('Sauvegarde déjà présente : %s' % p); continue
             if m.get('created_at'):

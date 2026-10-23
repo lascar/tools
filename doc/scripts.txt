@@ -127,7 +127,7 @@ patch.sh <tâche> [--include chemin]
 patch.sh list
 patch.sh restore doc/<patch> [--yes]
 
-Sans argument, propose les sauvegardes en attente de la tâche courante et demande confirmation avant restauration. Sans terminal interactif, affiche les propositions sans les appliquer. L’absence de sauvegarde est signalée.
+Sans argument, propose les sauvegardes en attente de la tâche courante et demande confirmation avant restauration. Les archives .wtpatch.zip d’une autre branche ou d’un autre commit de base sont signalées et conservées, sans proposition de restauration automatique. Ce filtre s’applique aussi à l’ouverture d’un atelier après actualisation : un ancien patch ne bloque pas l’ouverture. Sans terminal interactif, affiche les propositions sans les appliquer. L’absence de sauvegarde est signalée.
 
 make sauvegarde le worktree courant. Un nom de tâche sauvegarde son worktree existant depuis un autre dossier du projet. Les archives sont uniques, vérifiées et stockées dans WT_MAIN_ROOT/doc. Elles comprennent l’index, les changements suivis, suppressions, binaires et fichiers nouveaux non ignorés. --include ajoute explicitement un chemin local normalement exclu ; à réserver aux fichiers que tu souhaites réellement sauvegarder.
 

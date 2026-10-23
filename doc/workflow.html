@@ -104,7 +104,7 @@ is_any_patch.sh 1234_ma_tache done
 <p>Depuis le worktree de la tâche :</p>
 <pre><code>patch.sh
 </code></pre>
-<p>La commande affiche les sauvegardes en attente et leur date, puis demande confirmation. Sans terminal interactif, elle les affiche sans restauration. Si aucun patch n’est disponible, elle le signale.</p>
+<p>La commande affiche les sauvegardes en attente et leur date, puis demande confirmation. Une archive <code>.wtpatch.zip</code> liée à une autre branche ou à un autre commit de base reste conservée mais n’est pas proposée à la restauration automatique, notamment après une fusion lors de l’ouverture d’un atelier. Une restauration explicite incompatible reste refusée. Sans terminal interactif, elle les affiche sans restauration. Si aucun patch n’est disponible, elle le signale.</p>
 <p>Pour choisir explicitement une archive :</p>
 <pre><code>patch.sh restore doc/NOM_DU_PATCH.wtpatch.zip
 </code></pre>

@@ -152,7 +152,7 @@ Depuis le worktree de la tâche :
 patch.sh
 ```
 
-La commande affiche les sauvegardes en attente et leur date, puis demande confirmation. Sans terminal interactif, elle les affiche sans restauration. Si aucun patch n’est disponible, elle le signale.
+La commande affiche les sauvegardes en attente et leur date, puis demande confirmation. Une archive `.wtpatch.zip` liée à une autre branche ou à un autre commit de base reste conservée mais n’est pas proposée à la restauration automatique, notamment après une fusion lors de l’ouverture d’un atelier. Une restauration explicite incompatible reste refusée. Sans terminal interactif, elle les affiche sans restauration. Si aucun patch n’est disponible, elle le signale.
 
 Pour choisir explicitement une archive :
 

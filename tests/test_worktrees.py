@@ -590,12 +590,47 @@ class WorktreeTests(unittest.TestCase):
         created = '2026-09-25T17:53:10+00:00'
         output = io.StringIO()
         with patch.object(backup, 'pending', return_value=[path]), \
-                patch.object(backup, 'inspect_archive', return_value=({'created_at': created}, b'', None)), \
+                patch.object(backup, 'inspect_archive', return_value=({'created_at': created, 'branch': self.git(self.root, 'branch', '--show-current'), 'head': self.git(self.root, 'rev-parse', 'HEAD')}, b'', None)), \
                 patch.object(backup, 'already_present', return_value=False), \
                 patch.object(backup.os, 'isatty', return_value=False), contextlib.redirect_stdout(output):
             backup.offer(self.root)
         expected = c.datetime.datetime.fromisoformat(created).astimezone().strftime('%d/%m/%Y à %H:%M:%S %Z (%z)')
         self.assertIn('Sauvegarde créée le : ' + expected, output.getvalue())
+
+    def test_backup_offer_skips_old_base_after_merge_and_keeps_local_work(self):
+        self.master_remote()
+        self.dirty_work()
+        archive = backup.make(self.root)
+        content = archive.read_bytes()
+        self.interactive_update('1')
+        snapshot = cli.changes_snapshot(self.root)
+        with patch.object(backup.os, 'isatty', return_value=True), \
+                patch.object(backup, 'ask', return_value=True) as ask, \
+                patch.object(backup, 'restore') as restore, patch('builtins.print', wraps=print) as output:
+            backup.offer(self.root)
+        ask.assert_not_called()
+        restore.assert_not_called()
+        self.assertTrue(any('commit de base différent' in str(call.args) for call in output.call_args_list))
+        self.assertEqual(cli.changes_snapshot(self.root), snapshot)
+        self.assertEqual(archive.read_bytes(), content)
+        self.assertFalse(Path(str(archive) + '.done').exists())
+
+    def test_backup_offer_continues_to_compatible_archive(self):
+        (self.root / 'tracked.txt').write_text('old work\n')
+        old = backup.make(self.root)
+        self.git(self.root, 'checkout', '.')
+        self.git(self.root, 'commit', '--allow-empty', '-m', 'new base')
+        (self.root / 'tracked.txt').write_text('current work\n')
+        current = backup.make(self.root)
+        self.git(self.root, 'checkout', '.')
+        with patch.object(backup, 'pending', return_value=[old, current]), \
+                patch.object(backup.os, 'isatty', return_value=True), \
+                patch.object(backup, 'ask', return_value=True) as ask:
+            backup.offer(self.root)
+        ask.assert_called_once()
+        self.assertEqual((self.root / 'tracked.txt').read_text(), 'current work\n')
+        self.assertTrue(old.exists())
+        self.assertTrue(Path(str(current) + '.done').exists())
 
     def master_terminal_env(self):
         return {'DISPLAY': ':0', 'GNOME_TERMINAL_SERVICE': ':1.89',
