@@ -110,6 +110,15 @@ def clear_local_changes(root, snapshot):
         (root / safe_relative(name)).unlink()
 
 
+def warn_merge_collisions(root, paths):
+    # Les worktrees ont leurs propres fichiers : signaler le travail parallele
+    # sans bloquer une fusion locale. Les conflits Git restent traites ensuite.
+    found = collisions(root, paths)
+    if found:
+        print('AVERTISSEMENT : fichiers modifiés dans d’autres worktrees ; '
+              'poursuite dans le worktree traité uniquement :\n' + '\n'.join(found), flush=True)
+
+
 def resolve_open_conflicts(root):
     root, branch, _ = context(root, task=True)
     paths = sorted(set(patches.names(root, 'diff', '--name-only', '--diff-filter=U', '-z')))
@@ -117,9 +126,7 @@ def resolve_open_conflicts(root):
         raise ToolError('Aucun conflit de fichier à traiter avec git mergetool ; vérifie git status.')
     if not os.isatty(0):
         raise ToolError('Conflits présents ; relance worktree_open.sh dans un terminal pour lancer git mergetool.')
-    found = collisions(root, paths)
-    if found:
-        raise ToolError('Fichiers modifiés dans un autre worktree ; mergetool refusé :\n' + '\n'.join(found))
+    warn_merge_collisions(root, paths)
     head = value(root, 'rev-parse', 'HEAD')
     print('Résolution des conflits avec git mergetool dans %s...' % branch, flush=True)
     result = run(['git', '-C', root, '--literal-pathspecs', 'mergetool', '--no-prompt', '--', *paths],
@@ -174,9 +181,7 @@ def refresh_master(root):
             raise ToolError(f'Le {BASE_BRANCH} local a divergé de {REMOTE}/{BASE_BRANCH} ; aucune fusion automatique dans {BASE_BRANCH}.')
         paths = patches.names(MAIN, 'diff', '--name-only', '--no-renames', '-z', head, target)
         # La tache courante participe a cette operation ; verifier les autres taches.
-        found = collisions(root, paths)
-        if found:
-            raise ToolError(f'Fichiers modifiés dans un autre worktree ; actualisation du {BASE_BRANCH} local refusée :\n' + '\n'.join(found))
+        warn_merge_collisions(root, paths)
         ready()
         if value(MAIN, 'rev-parse', 'HEAD') != head:
             raise ToolError(f'Le {BASE_BRANCH} local a changé pendant la vérification ; relance l’ouverture.')
@@ -245,9 +250,7 @@ def update_from_master(root):
         paths = sorted(set(p for p in paths if p))
         print('Vérification des collisions dans les autres worktrees (%s fichiers)...' %
               len([p for p in paths if p]), flush=True)
-        found = collisions(root, [p for p in paths if p])
-        if found:
-            raise ToolError('Fichiers modifiés dans un autre worktree ; fusion refusée :\n' + '\n'.join(found))
+        warn_merge_collisions(root, paths)
         ready(clean=snapshot is None)
         stash = None
         if snapshot is not None:

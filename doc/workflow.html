@@ -62,12 +62,12 @@ nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
 <h2 id="4-traiter-les-modifications-lors-dune-ouverture">4. Traiter les modifications lors d’une ouverture</h2>
 <p>Si une tâche existante contient du travail local, l’ouverture avec actualisation propose un choix :</p>
 <ul>
-<li>Fusionner en conservant le travail : sauvegarde temporaire par stash, actualisation et fusion, puis réapplication avec l’index. Si la branche est déjà à jour après actualisation, le travail reste en place, sans stash ni fusion ; les modifications concurrentes du même chemin ne bloquent pas ce cas. Une fusion effective conserve les contrôles de collision.</li>
+<li>Fusionner en conservant le travail : sauvegarde temporaire par stash, actualisation et fusion, puis réapplication avec l’index. Si la branche est déjà à jour après actualisation, le travail reste en place, sans stash ni fusion ; les modifications concurrentes du même chemin ne bloquent pas ce cas. Une fusion effective signale les collisions avec les autres worktrees par un avertissement, sans les bloquer ni modifier ces autres worktrees. Cela vaut aussi pour l’actualisation de la base locale et mergetool.</li>
 <li>Sauvegarder en patch puis nettoyer : créer une archive vérifiée dans WT_MAIN_ROOT/doc, nettoyer les fichiers sauvegardés et ouvrir sans fusion.</li>
 <li>Éliminer les changements : choix destructif explicite, puis ouverture sans fusion.</li>
 <li>Annuler : choix par défaut lorsque la réponse est vide.</li>
 </ul>
-<p><code>--no-update</code> évite cette actualisation et ce menu. Un conflit, une opération Git en cours ou une collision de fichiers avec un autre worktree peut interrompre le traitement.</p>
+<p><code>--no-update</code> évite cette actualisation et ce menu. Un conflit Git non résolu ou une opération Git en cours peut interrompre le traitement. Les collisions entre worktrees distincts sont informatives pour le choix 1 ; elles restent bloquantes pour les choix de sauvegarde/nettoyage ou d’élimination des modifications.</p>
 <p>En cas de conflit de réapplication du stash, le script peut proposer <code>git mergetool</code> dans la tâche. Si la résolution n’est pas terminée, l’ouverture reste interrompue et le travail est conservé. Ne relance pas une restauration ou une fusion à l’aveugle ; examine l’état Git affiché.</p>
 <h2 id="5-circuler-entre-les-terminaux">5. Circuler entre les terminaux</h2>
 <p>Pour afficher une tâche déjà ouverte :</p>

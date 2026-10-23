@@ -75,12 +75,12 @@ Les commandes explicites restent disponibles : `worktree_new.sh` exige une nouve
 
 Si une tâche existante contient du travail local, l’ouverture avec actualisation propose un choix :
 
-- Fusionner en conservant le travail : sauvegarde temporaire par stash, actualisation et fusion, puis réapplication avec l’index. Si la branche est déjà à jour après actualisation, le travail reste en place, sans stash ni fusion ; les modifications concurrentes du même chemin ne bloquent pas ce cas. Une fusion effective conserve les contrôles de collision.
+- Fusionner en conservant le travail : sauvegarde temporaire par stash, actualisation et fusion, puis réapplication avec l’index. Si la branche est déjà à jour après actualisation, le travail reste en place, sans stash ni fusion ; les modifications concurrentes du même chemin ne bloquent pas ce cas. Une fusion effective signale les collisions avec les autres worktrees par un avertissement, sans les bloquer ni modifier ces autres worktrees. Cela vaut aussi pour l’actualisation de la base locale et mergetool.
 - Sauvegarder en patch puis nettoyer : créer une archive vérifiée dans WT_MAIN_ROOT/doc, nettoyer les fichiers sauvegardés et ouvrir sans fusion.
 - Éliminer les changements : choix destructif explicite, puis ouverture sans fusion.
 - Annuler : choix par défaut lorsque la réponse est vide.
 
-`--no-update` évite cette actualisation et ce menu. Un conflit, une opération Git en cours ou une collision de fichiers avec un autre worktree peut interrompre le traitement.
+`--no-update` évite cette actualisation et ce menu. Un conflit Git non résolu ou une opération Git en cours peut interrompre le traitement. Les collisions entre worktrees distincts sont informatives pour le choix 1 ; elles restent bloquantes pour les choix de sauvegarde/nettoyage ou d’élimination des modifications.
 
 En cas de conflit de réapplication du stash, le script peut proposer `git mergetool` dans la tâche. Si la résolution n’est pas terminée, l’ouverture reste interrompue et le travail est conservé. Ne relance pas une restauration ou une fusion à l’aveugle ; examine l’état Git affiché.
 

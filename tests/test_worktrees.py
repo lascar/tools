@@ -140,14 +140,18 @@ class WorktreeTests(unittest.TestCase):
         commands = [call.args[0] for call in run.call_args_list]
         self.assertFalse(any('stash' in command or 'merge' in command for command in commands))
 
-    def test_dirty_merge_needed_refuses_collision_on_stashed_file(self):
-        self.master_remote()
+    def test_dirty_merge_warns_on_stashed_file_and_keeps_other_worktree(self):
+        target = self.master_remote()
         other = self.other_dirty_worktree()
         self.dirty_work()
-        snapshot = cli.changes_snapshot(self.root)
-        with self.assertRaisesRegex(c.ToolError, 'autre worktree'):
+        staged = backup.diff_bytes(self.root, True)
+        working = backup.diff_bytes(self.root)
+        with patch('builtins.print', wraps=print) as output:
             self.interactive_update('1')
-        self.assertEqual(cli.changes_snapshot(self.root), snapshot)
+        self.assertTrue(any('AVERTISSEMENT' in str(call.args) for call in output.call_args_list))
+        self.assertEqual(self.git(self.root, 'rev-parse', 'HEAD'), target)
+        self.assertEqual(backup.diff_bytes(self.root, True), staged)
+        self.assertEqual(backup.diff_bytes(self.root), working)
         self.assertEqual((other / 'tracked.txt').read_text(), 'other task work\n')
         self.assertEqual(self.git(self.root, 'stash', 'list'), '')
 
@@ -220,6 +224,18 @@ class WorktreeTests(unittest.TestCase):
         self.assertEqual(self.git(self.root, 'show', stash + ':tracked.txt'), 'local work')
         prepare.assert_called_once_with(self.root, new=False)
         opened.assert_called_once_with(self.root, 'http')
+
+    def test_mergetool_warns_without_modifying_other_worktree(self):
+        stash = self.existing_stash_conflict()
+        other = self.other_dirty_worktree()
+        self.configure_fixture_mergetool()
+        with patch.object(cli.os, 'isatty', return_value=True), patch('builtins.print', wraps=print) as output:
+            cli.resolve_open_conflicts(self.root)
+        self.assertTrue(any('AVERTISSEMENT' in str(call.args) for call in output.call_args_list))
+        self.assertEqual(self.git(self.root, 'diff', '--name-only', '--diff-filter=U'), '')
+        self.assertEqual((self.root / 'tracked.txt').read_text(), 'resolved\n')
+        self.assertEqual((other / 'tracked.txt').read_text(), 'other task work\n')
+        self.assertEqual(self.git(self.root, 'rev-parse', 'refs/stash'), stash)
 
     def test_existing_stash_conflict_resumes_without_fetch_or_second_apply(self):
         stash = self.existing_stash_conflict()
@@ -456,16 +472,18 @@ class WorktreeTests(unittest.TestCase):
         self.assertEqual(self.git(self.main, 'branch', '--show-current'), 'local_other')
         self.assertEqual(self.git(self.root, 'rev-parse', 'HEAD'), before)
 
-    def test_local_master_refresh_refuses_collisions_with_other_task(self):
-        self.master_remote('tracked.txt')
+    def test_local_master_refresh_warns_and_preserves_other_task(self):
+        target = self.master_remote('tracked.txt')
         self.git(self.main, 'branch', 'feature/2345_other')
         other = cli.ensure_worktree('2345_other')
         (other / 'tracked.txt').write_text('other task editing\n')
-        before = self.git(self.main, 'rev-parse', 'HEAD')
-        with self.assertRaisesRegex(c.ToolError, 'actualisation du master local refusée'):
+        before = self.git(other, 'rev-parse', 'HEAD')
+        with patch('builtins.print', wraps=print) as output:
             cli.update_from_master(self.root)
-        self.assertEqual(self.git(self.main, 'rev-parse', 'HEAD'), before)
-        self.assertEqual(self.git(self.root, 'rev-parse', 'HEAD'), before)
+        self.assertTrue(any('AVERTISSEMENT' in str(call.args) for call in output.call_args_list))
+        self.assertEqual(self.git(self.main, 'rev-parse', 'HEAD'), target)
+        self.assertEqual(self.git(self.root, 'rev-parse', 'HEAD'), target)
+        self.assertEqual(self.git(other, 'rev-parse', 'HEAD'), before)
         self.assertEqual((other / 'tracked.txt').read_text(), 'other task editing\n')
 
     def test_local_master_ignored_file_is_not_overwritten(self):
