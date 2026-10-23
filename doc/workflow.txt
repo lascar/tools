@@ -63,7 +63,7 @@ Les commandes explicites restent disponibles : worktree_new.sh exige une nouvell
 
 Si une tâche existante contient du travail local, l’ouverture avec actualisation propose un choix :
 
-- Fusionner en conservant le travail : sauvegarde temporaire par stash, actualisation et fusion, puis réapplication avec l’index.
+- Fusionner en conservant le travail : sauvegarde temporaire par stash, actualisation et fusion, puis réapplication avec l’index. Si la branche est déjà à jour après actualisation, le travail reste en place, sans stash ni fusion ; les modifications concurrentes du même chemin ne bloquent pas ce cas. Une fusion effective conserve les contrôles de collision.
 - Sauvegarder en patch puis nettoyer : créer une archive vérifiée dans WT_MAIN_ROOT/doc, nettoyer les fichiers sauvegardés et ouvrir sans fusion.
 - Éliminer les changements : choix destructif explicite, puis ouverture sans fusion.
 - Annuler : choix par défaut lorsque la réponse est vide.

@@ -213,10 +213,10 @@ def update_from_master(root):
             ready(clean=False)
             if changes_snapshot(root) != snapshot:
                 raise ToolError('Le travail a changé pendant le choix ; relance l’ouverture.')
-            found = collisions(root, [f['path'] for f in snapshot[3]])
-            if found:
-                raise ToolError('Fichiers modifiés dans un autre worktree ; traitement refusé :\n' + '\n'.join(found))
             if action in ('patch', 'discard'):
+                found = collisions(root, [f['path'] for f in snapshot[3]])
+                if found:
+                    raise ToolError('Fichiers modifiés dans un autre worktree ; traitement refusé :\n' + '\n'.join(found))
                 if action == 'patch':
                     archive = patches.make(root)
                     if not archive:
@@ -238,6 +238,11 @@ def update_from_master(root):
         if included != 1: raise ToolError(f'Impossible de comparer la tâche à {REMOTE}/{BASE_BRANCH}.')
         base = value(root, 'merge-base', 'HEAD', target)
         paths = git(root, 'diff', '--name-only', '--no-renames', '-z', base, target).stdout.split('\0')
+        # Une branche deja a jour ne touche pas au travail local. Si une fusion
+        # est necessaire, le stash modifie aussi les fichiers du snapshot.
+        if snapshot is not None:
+            paths.extend(f['path'] for f in snapshot[3])
+        paths = sorted(set(p for p in paths if p))
         print('Vérification des collisions dans les autres worktrees (%s fichiers)...' %
               len([p for p in paths if p]), flush=True)
         found = collisions(root, [p for p in paths if p])

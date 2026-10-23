@@ -120,6 +120,37 @@ class WorktreeTests(unittest.TestCase):
         self.assertEqual(cli.changes_snapshot(self.root), snapshot)
         self.assertEqual(self.git(self.root, 'stash', 'list'), '')
 
+    def other_dirty_worktree(self):
+        other = self.main.parent / 'project-5678_other'
+        self.git(self.main, 'worktree', 'add', '-b', 'feature/5678_other', str(other), 'master')
+        (other / 'tracked.txt').write_text('other task work\n')
+        return other
+
+    def test_dirty_merge_already_updated_allows_collision_without_touching_work(self):
+        self.master_remote()
+        cli.update_from_master(self.root)
+        other = self.other_dirty_worktree()
+        self.dirty_work()
+        snapshot = cli.changes_snapshot(self.root)
+        with patch.object(cli, 'run', wraps=cli.run) as run:
+            self.interactive_update('1')
+        self.assertEqual(cli.changes_snapshot(self.root), snapshot)
+        self.assertEqual((other / 'tracked.txt').read_text(), 'other task work\n')
+        self.assertEqual(self.git(self.root, 'stash', 'list'), '')
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertFalse(any('stash' in command or 'merge' in command for command in commands))
+
+    def test_dirty_merge_needed_refuses_collision_on_stashed_file(self):
+        self.master_remote()
+        other = self.other_dirty_worktree()
+        self.dirty_work()
+        snapshot = cli.changes_snapshot(self.root)
+        with self.assertRaisesRegex(c.ToolError, 'autre worktree'):
+            self.interactive_update('1')
+        self.assertEqual(cli.changes_snapshot(self.root), snapshot)
+        self.assertEqual((other / 'tracked.txt').read_text(), 'other task work\n')
+        self.assertEqual(self.git(self.root, 'stash', 'list'), '')
+
     def test_dirty_merge_fetch_failure_keeps_local_work(self):
         self.dirty_work()
         snapshot = cli.changes_snapshot(self.root)
