@@ -2,13 +2,13 @@
 
 [Version HTML](README.html) · [Version TXT](README.txt) · [Configuration du .env](env/README.md)
 
-Documentation vérifiée le 15 octobre 2026 sur les fichiers `.sh` actuellement présents dans ce dossier : **28 commandes et 2 fichiers de support Bash**. Les versions Markdown servent de source ; chaque page existe aussi en HTML et TXT. Les liens du Markdown permettent de naviguer dans un lecteur Markdown ou sur une forge Git. Pour lire la documentation dans un navigateur local, ouvre la [version HTML](README.html).
+Inventaire actualisé le 23 octobre 2026 : **29 commandes et 2 fichiers de support Bash** au format `.sh`, ainsi que la commande `worktree_prune` sans extension (alias de `worktree_prune.sh`). Les versions Markdown servent de source ; chaque page existe aussi en HTML et TXT. Les liens du Markdown permettent de naviguer dans un lecteur Markdown ou sur une forge Git. Pour lire la documentation dans un navigateur local, ouvre la [version HTML](README.html).
 
 ## Lire dans l’ordre
 
 - [Prérequis et installation](doc/installation.md) — préparer le poste, configurer les outils et vérifier l’installation.
 - [Workflow quotidien](doc/workflow.md) — préparer le terminal, rejoindre une tâche, travailler, sauvegarder, restaurer et terminer.
-- [Référence des scripts](doc/scripts.md) — arguments, effets et exemples des seuls `.sh` actuels.
+- [Référence des scripts](doc/scripts.md) — arguments, effets et exemples des commandes actuelles.
 - [Configuration du .env](env/README.md) — rôle et syntaxe de chaque variable, commandes du serveur et de la console.
 - [Modèle de configuration](.env.example) — exemple générique, à adapter seulement pour une nouvelle installation.
 
@@ -22,6 +22,7 @@ Documentation vérifiée le 15 octobre 2026 sur les fichiers `.sh` actuellement 
 - [worktree_status.sh](doc/scripts.md#worktree_statussh) — afficher l’état Git des worktrees, leurs ateliers ouverts ou fermés et le total ouvert.
 - [worktree_close.sh](doc/scripts.md#worktree_closesh) — fermer un atelier ; sans argument depuis le principal, fermer tous les ateliers ouverts en conservant les worktrees.
 - [worktree_remove.sh](doc/scripts.md#worktree_removesh) — retirer explicitement un worktree fermé, après archive vérifiée.
+- [worktree_prune / worktree_prune.sh](doc/scripts.md#worktree_prunesh) — retirer les worktrees inactifs depuis 20 jours ; `--dry-run` affiche les candidats.
 - [change_branch.sh](doc/scripts.md#change_branchsh) — rejoindre un worktree inactif dans le terminal appelant, après actualisation et fusion.
 
 ## Sauvegarder et examiner le travail
@@ -65,7 +66,7 @@ Les patchs et leurs fichiers `.done` se trouvent toujours dans **WT_MAIN_ROOT/do
 
 Les commandes d’ouverture conservent le dossier du terminal de lancement. `change_branch.sh` fait un véritable `cd` grâce à la fonction Bash. La fermeture peut fermer le shell appelant s’il s’agit d’un onglet supplémentaire de l’atelier ; lorsqu’il est conservé, la fonction revient au dépôt principal.
 
-La référence couvre uniquement les `.sh` présents à la date de vérification. Les aides des 28 commandes ont été exécutées sans action ; les comportements ont été recoupés avec les modules appelés. Cette vérification documentaire n’a démarré aucun service, ouvert aucun atelier ni exécuté de commit, push ou fusion.
+La référence couvre les `.sh` présents et la commande `worktree_prune` sans extension. Lors de la vérification initiale du 15 octobre, les aides des 28 commandes alors présentes ont été exécutées sans action ; les comportements ont été recoupés avec les modules appelés. Cette vérification documentaire n’a démarré aucun service, ouvert aucun atelier ni exécuté de commit, push ou fusion.
 
 ## Installer et vérifier
 

@@ -21,7 +21,7 @@ nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
 </style></head><body><nav><a href="scripts.md">Version Markdown</a></nav><main>
 <h1 id="reference-des-scripts-sh-actuels">Référence des scripts .sh actuels</h1>
 <p><a href="../README.html">Retour au README des outils</a> · <a href="workflow.html">Workflow quotidien</a> · <a href="scripts.txt">Version TXT</a></p>
-<p>Inventaire du 15 octobre 2026 : <strong>30 fichiers `.sh`</strong>, dont 28 commandes et 2 fichiers de support Bash. La liste correspond au dossier parent, sans scripts déplacés ni anciennes copies. Les arguments ont été recoupés avec les aides actuelles et les modules appelés.</p>
+<p>Inventaire du 23 octobre 2026 : <strong>31 fichiers `.sh`</strong>, dont 29 commandes et 2 fichiers de support Bash. <code>worktree_prune</code> est également disponible sans extension. La liste correspond au dossier parent, sans scripts déplacés ni anciennes copies. Les arguments ont été recoupés avec les aides actuelles et les modules appelés.</p>
 <p>Les exemples supposent que le dossier des outils est dans le <code>PATH</code>. <code>&lt;tâche&gt;</code> représente un nom tel que <code>1234_ma_tache</code> ; les tickets suivent la forme <code>t_2345_mon_ticket</code>. Ne recopie pas les chevrons de la syntaxe dans une commande réelle.</p>
 <p>La racine principale, les conventions Git et les services viennent du <code>.env</code>. Les noms historiques contenant <code>master</code> restent des noms de commandes ; ils utilisent la branche principale configurée. Les patchs, archives et fichiers <code>.done</code> restent exclusivement dans WT_MAIN_ROOT/doc.</p>
 <h2 id="rejoindre-et-gerer-les-ateliers">Rejoindre et gérer les ateliers</h2>
@@ -35,11 +35,17 @@ worktree_reach.sh 1234_ma_tache --no-update
 worktree_reach.sh
 </code></pre>
 <h3 id="worktree_prunesh">worktree_prune.sh</h3>
+<p>La commande <code>worktree_prune</code> et son alias <code>worktree_prune.sh</code> acceptent les mêmes arguments.</p>
 <pre><code>worktree_prune [days=20] [--dry-run]
 worktree_prune.sh [days=20] [--dry-run]
 </code></pre>
 <p>Retire les worktrees de tâches sans activité locale depuis le nombre de jours indiqué (entier strictement positif). <code>--dry-run</code> affiche les candidats sans sauvegarde ni suppression. Protège le dépôt principal, le worktree courant, les tâches ouvertes, modifiées, verrouillées et les situations impossibles à vérifier. L&#x27;activité correspond au maximum des dates de modification des fichiers locaux, des métadonnées Git propres au worktree, des journaux centraux et des traces d&#x27;atelier. Les liens vers les dossiers partagés ne sont pas parcourus. Une lecture passée seule n&#x27;est pas toujours détectable.</p>
 <p>Réutilise la suppression avec archive complète vérifiée de <code>worktree_remove.sh</code> et recontrôle l&#x27;âge sous verrou et après sauvegarde. Conserve les branches, journaux et documents partagés. Les refus sont détaillés ; une suppression en échec donne un code de sortie non nul.</p>
+<p>Exemples depuis le dépôt principal ou un worktree de tâche :</p>
+<pre><code>worktree_prune --dry-run      # aperçu avec le seuil par défaut de 20 jours
+worktree_prune 30 --dry-run   # aperçu avec un seuil de 30 jours
+worktree_prune 30             # retirer les worktrees éligibles après sauvegarde
+</code></pre>
 <h3 id="worktree_newsh">worktree_new.sh</h3>
 <pre><code>worktree_new.sh &lt;tâche&gt; [--prepare-only] [--mode mode]
 </code></pre>

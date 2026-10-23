@@ -1,6 +1,6 @@
 # Workflow quotidien avec les worktrees
 
-Pour retirer les ateliers anciens et fermés, commence par `worktree_prune --dry-run`, puis lance `worktree_prune` (20 jours par défaut) ou `worktree_prune 30`. L'âge repose sur les fichiers locaux, l'état Git et les traces de session. Les ateliers modifiés ou actifs sont conservés ; chaque suppression sauvegarde le contenu et conserve la branche et le journal central. Voir la fiche `worktree_prune.sh` dans la référence des scripts.
+Pour retirer les ateliers anciens et fermés, commence par `worktree_prune --dry-run`, puis lance `worktree_prune` (20 jours par défaut) ou `worktree_prune 30`. L'âge repose sur les fichiers locaux, l'état Git et les traces de session. Les ateliers modifiés ou actifs sont conservés ; chaque suppression sauvegarde le contenu et conserve la branche et le journal central. Voir la fiche [worktree_prune / worktree_prune.sh](scripts.md#worktree_prunesh) dans la référence des scripts.
 
 [Retour au README des outils](../README.md) · [Référence des scripts](scripts.md) · [Version TXT](workflow.txt)
 

@@ -21,12 +21,12 @@ nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
 </style></head><body><nav><a href="README.md">Version Markdown</a></nav><main>
 <h1 id="workflow-worktree-index-des-outils">Workflow worktree — index des outils</h1>
 <p><a href="README.html">Version HTML</a> · <a href="README.txt">Version TXT</a> · <a href="env/README.html">Configuration du .env</a></p>
-<p>Documentation vérifiée le 15 octobre 2026 sur les fichiers <code>.sh</code> actuellement présents dans ce dossier : <strong>28 commandes et 2 fichiers de support Bash</strong>. Les versions Markdown servent de source ; chaque page existe aussi en HTML et TXT. Les liens du Markdown permettent de naviguer dans un lecteur Markdown ou sur une forge Git. Pour lire la documentation dans un navigateur local, ouvre la <a href="README.html">version HTML</a>.</p>
+<p>Inventaire actualisé le 23 octobre 2026 : <strong>29 commandes et 2 fichiers de support Bash</strong> au format <code>.sh</code>, ainsi que la commande <code>worktree_prune</code> sans extension (alias de <code>worktree_prune.sh</code>). Les versions Markdown servent de source ; chaque page existe aussi en HTML et TXT. Les liens du Markdown permettent de naviguer dans un lecteur Markdown ou sur une forge Git. Pour lire la documentation dans un navigateur local, ouvre la <a href="README.html">version HTML</a>.</p>
 <h2 id="lire-dans-lordre">Lire dans l’ordre</h2>
 <ul>
 <li><a href="doc/installation.html">Prérequis et installation</a> — préparer le poste, configurer les outils et vérifier l’installation.</li>
 <li><a href="doc/workflow.html">Workflow quotidien</a> — préparer le terminal, rejoindre une tâche, travailler, sauvegarder, restaurer et terminer.</li>
-<li><a href="doc/scripts.html">Référence des scripts</a> — arguments, effets et exemples des seuls <code>.sh</code> actuels.</li>
+<li><a href="doc/scripts.html">Référence des scripts</a> — arguments, effets et exemples des commandes actuelles.</li>
 <li><a href="env/README.html">Configuration du .env</a> — rôle et syntaxe de chaque variable, commandes du serveur et de la console.</li>
 <li><a href=".env.example">Modèle de configuration</a> — exemple générique, à adapter seulement pour une nouvelle installation.</li>
 </ul>
@@ -40,6 +40,7 @@ nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
 <li><a href="doc/scripts.html#worktree_statussh">worktree_status.sh</a> — afficher l’état Git des worktrees, leurs ateliers ouverts ou fermés et le total ouvert.</li>
 <li><a href="doc/scripts.html#worktree_closesh">worktree_close.sh</a> — fermer un atelier ; sans argument depuis le principal, fermer tous les ateliers ouverts en conservant les worktrees.</li>
 <li><a href="doc/scripts.html#worktree_removesh">worktree_remove.sh</a> — retirer explicitement un worktree fermé, après archive vérifiée.</li>
+<li><a href="doc/scripts.html#worktree_prunesh">worktree_prune / worktree_prune.sh</a> — retirer les worktrees inactifs depuis 20 jours ; <code>--dry-run</code> affiche les candidats.</li>
 <li><a href="doc/scripts.html#change_branchsh">change_branch.sh</a> — rejoindre un worktree inactif dans le terminal appelant, après actualisation et fusion.</li>
 </ul>
 <h2 id="sauvegarder-et-examiner-le-travail">Sauvegarder et examiner le travail</h2>
@@ -79,7 +80,7 @@ nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
 <p>Les exemples utilisent <code>1234_ma_tache</code> et <code>t_2345_mon_ticket</code>. Les préfixes de branches, chemins, services, ports et titres d’onglets viennent du <code>.env</code> des outils. <code>WT_MAIN_ROOT</code> désigne le dépôt principal ; les scripts Python le lisent dans <code>.env</code>, sans l’exporter automatiquement dans ton terminal Bash.</p>
 <p>Les patchs et leurs fichiers <code>.done</code> se trouvent toujours dans <strong>WT_MAIN_ROOT/doc</strong>, commun à toutes les tâches. Le code et les opérations Git d’une tâche restent dans son worktree. Les journaux d’agent utilisent le dossier central configuré.</p>
 <p>Les commandes d’ouverture conservent le dossier du terminal de lancement. <code>change_branch.sh</code> fait un véritable <code>cd</code> grâce à la fonction Bash. La fermeture peut fermer le shell appelant s’il s’agit d’un onglet supplémentaire de l’atelier ; lorsqu’il est conservé, la fonction revient au dépôt principal.</p>
-<p>La référence couvre uniquement les <code>.sh</code> présents à la date de vérification. Les aides des 28 commandes ont été exécutées sans action ; les comportements ont été recoupés avec les modules appelés. Cette vérification documentaire n’a démarré aucun service, ouvert aucun atelier ni exécuté de commit, push ou fusion.</p>
+<p>La référence couvre les <code>.sh</code> présents et la commande <code>worktree_prune</code> sans extension. Lors de la vérification initiale du 15 octobre, les aides des 28 commandes alors présentes ont été exécutées sans action ; les comportements ont été recoupés avec les modules appelés. Cette vérification documentaire n’a démarré aucun service, ouvert aucun atelier ni exécuté de commit, push ou fusion.</p>
 <h2 id="installer-et-verifier">Installer et vérifier</h2>
 <p>Le fichier <code>.env</code> placé à côté des scripts contient les réglages propres à l’installation, y compris les définitions complètes des conteneurs applicatifs et CI. Avec WT_COMPOSE_CONFIG et WT_CI_COMPOSE_CONFIG renseignés, les outils génèrent leurs fichiers Compose sans dépendre des fichiers Compose du projet. Il est ignoré par Git et reste privé. <code>.env.example</code> fournit un profil générique à adapter ; conserve ton <code>.env</code> existant lors d’une mise à jour.</p>
 <pre><code># Pour une nouvelle installation uniquement :

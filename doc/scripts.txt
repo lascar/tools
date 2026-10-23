@@ -2,7 +2,7 @@ Référence des scripts .sh actuels
 
 Retour au README des outils (../README.txt) · Workflow quotidien (workflow.md) · Version TXT (scripts.txt)
 
-Inventaire du 15 octobre 2026 : 30 fichiers `.sh`, dont 28 commandes et 2 fichiers de support Bash. La liste correspond au dossier parent, sans scripts déplacés ni anciennes copies. Les arguments ont été recoupés avec les aides actuelles et les modules appelés.
+Inventaire du 23 octobre 2026 : 31 fichiers `.sh`, dont 29 commandes et 2 fichiers de support Bash. worktree_prune est également disponible sans extension. La liste correspond au dossier parent, sans scripts déplacés ni anciennes copies. Les arguments ont été recoupés avec les aides actuelles et les modules appelés.
 
 Les exemples supposent que le dossier des outils est dans le PATH. <tâche> représente un nom tel que 1234_ma_tache ; les tickets suivent la forme t_2345_mon_ticket. Ne recopie pas les chevrons de la syntaxe dans une commande réelle.
 
@@ -24,12 +24,20 @@ worktree_reach.sh
 
 worktree_prune.sh
 
+La commande worktree_prune et son alias worktree_prune.sh acceptent les mêmes arguments.
+
 worktree_prune [days=20] [--dry-run]
 worktree_prune.sh [days=20] [--dry-run]
 
 Retire les worktrees de tâches sans activité locale depuis le nombre de jours indiqué (entier strictement positif). --dry-run affiche les candidats sans sauvegarde ni suppression. Protège le dépôt principal, le worktree courant, les tâches ouvertes, modifiées, verrouillées et les situations impossibles à vérifier. L'activité correspond au maximum des dates de modification des fichiers locaux, des métadonnées Git propres au worktree, des journaux centraux et des traces d'atelier. Les liens vers les dossiers partagés ne sont pas parcourus. Une lecture passée seule n'est pas toujours détectable.
 
 Réutilise la suppression avec archive complète vérifiée de worktree_remove.sh et recontrôle l'âge sous verrou et après sauvegarde. Conserve les branches, journaux et documents partagés. Les refus sont détaillés ; une suppression en échec donne un code de sortie non nul.
+
+Exemples depuis le dépôt principal ou un worktree de tâche :
+
+worktree_prune --dry-run      # aperçu avec le seuil par défaut de 20 jours
+worktree_prune 30 --dry-run   # aperçu avec un seuil de 30 jours
+worktree_prune 30             # retirer les worktrees éligibles après sauvegarde
 
 worktree_new.sh
 
