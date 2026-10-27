@@ -2,11 +2,40 @@
 
 [Retour au README des outils](../README.md) · [Workflow quotidien](workflow.md) · [Version TXT](scripts.txt)
 
-Inventaire du 23 octobre 2026 : **31 fichiers `.sh`**, dont 29 commandes et 2 fichiers de support Bash. `worktree_prune` est également disponible sans extension. La liste correspond au dossier parent, sans scripts déplacés ni anciennes copies. Les arguments ont été recoupés avec les aides actuelles et les modules appelés.
+Inventaire du 27 octobre 2026 : **32 fichiers `.sh`**, dont 30 commandes et 2 fichiers de support Bash. `worktree_prune` est également disponible sans extension. La liste correspond au dossier parent, sans scripts déplacés ni anciennes copies. Les arguments ont été recoupés avec les aides actuelles et les modules appelés.
 
 Les exemples supposent que le dossier des outils est dans le `PATH`. `<tâche>` représente un nom tel que `1234_ma_tache` ; les tickets suivent la forme `t_2345_mon_ticket`. Ne recopie pas les chevrons de la syntaxe dans une commande réelle.
 
 La racine principale, les conventions Git et les services viennent du `.env`. Les noms historiques contenant `master` restent des noms de commandes ; ils utilisent la branche principale configurée. Les patchs, archives et fichiers `.done` restent exclusivement dans WT_MAIN_ROOT/doc.
+
+## Démarrer la session principale
+
+### zz.sh
+
+```text
+/home/pascal/development/bo.facile/doc/tools/zz.sh [--shell | --console | --server]
+```
+
+Lanceur personnel de Pascal, anciennement `open_bo.sh`. Rejoint le dépôt physique `/home/pascal/development/bo.facile` et exige la branche `master`, sans changer de branche. Une session graphique GNOME et les commandes `git`, `python3`, `docker` et `gnome-terminal` sont nécessaires.
+
+Les opérations se succèdent dans cet ordre :
+
+1. Vérifier que tous les ateliers de tâches sont fermés, hors dépôt principal. Un onglet géré encore vivant suffit à bloquer ; les terminaux ouverts manuellement hors des outils ne sont pas détectés. En cas de blocage, afficher les noms, branches et chemins concernés puis quitter avant le pull et toute action Docker. Aucun atelier n’est fermé automatiquement. Utiliser `worktree_status.sh`, puis `worktree_close.sh` depuis le principal pour les fermer.
+2. Actualiser `master` avec `git pull --ff-only`. Une divergence ou un échec interrompt le lancement.
+3. Exécuter `docker_stop_all.sh` et attendre sa réussite. Depuis `master`, cet arrêt concerne les conteneurs reconnus du projet principal, de la CI et des runtimes worktree ; les services d’autres tâches sont donc concernés.
+4. Démarrer les services Docker fondamentaux et le runtime principal.
+5. Ouvrir trois onglets GNOME : **Codex**, **shell Docker** et **Merge**. L’onglet Merge lance `merge_to_master.sh`, dont le rôle actuel est d’auditer l’intégration sans effectuer de fusion. La mise à jour interactive éventuelle de Codex ne bloque pas l’ouverture des autres onglets.
+
+Le deuxième onglet ouvre un shell Docker par défaut (`--shell`). `--console` le remplace par la console Rails et `--server` par le serveur. Chaque onglet conserve un Bash interactif après la sortie de sa commande. Les onglets sont ajoutés à la fenêtre GNOME appelante lorsqu’elle est identifiée ; sinon une nouvelle fenêtre est ouverte.
+
+Codex reçoit explicitement l’accès aux dossiers centraux `doc` et `sessions_codex`, ainsi que la consigne de lire `AGENTS.md`, puis `AGENTS-pascal.md`, et de reprendre `sessions_codex/master.jsont`.
+
+```bash
+/home/pascal/development/bo.facile/doc/tools/zz.sh
+/home/pascal/development/bo.facile/doc/tools/zz.sh --console
+/home/pascal/development/bo.facile/doc/tools/zz.sh --server
+/home/pascal/development/bo.facile/doc/tools/zz.sh --help
+```
 
 ## Rejoindre et gérer les ateliers
 

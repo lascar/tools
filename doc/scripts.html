@@ -21,9 +21,29 @@ nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
 </style></head><body><nav><a href="scripts.md">Version Markdown</a></nav><main>
 <h1 id="reference-des-scripts-sh-actuels">Référence des scripts .sh actuels</h1>
 <p><a href="../README.html">Retour au README des outils</a> · <a href="workflow.html">Workflow quotidien</a> · <a href="scripts.txt">Version TXT</a></p>
-<p>Inventaire du 23 octobre 2026 : <strong>31 fichiers `.sh`</strong>, dont 29 commandes et 2 fichiers de support Bash. <code>worktree_prune</code> est également disponible sans extension. La liste correspond au dossier parent, sans scripts déplacés ni anciennes copies. Les arguments ont été recoupés avec les aides actuelles et les modules appelés.</p>
+<p>Inventaire du 27 octobre 2026 : <strong>32 fichiers `.sh`</strong>, dont 30 commandes et 2 fichiers de support Bash. <code>worktree_prune</code> est également disponible sans extension. La liste correspond au dossier parent, sans scripts déplacés ni anciennes copies. Les arguments ont été recoupés avec les aides actuelles et les modules appelés.</p>
 <p>Les exemples supposent que le dossier des outils est dans le <code>PATH</code>. <code>&lt;tâche&gt;</code> représente un nom tel que <code>1234_ma_tache</code> ; les tickets suivent la forme <code>t_2345_mon_ticket</code>. Ne recopie pas les chevrons de la syntaxe dans une commande réelle.</p>
 <p>La racine principale, les conventions Git et les services viennent du <code>.env</code>. Les noms historiques contenant <code>master</code> restent des noms de commandes ; ils utilisent la branche principale configurée. Les patchs, archives et fichiers <code>.done</code> restent exclusivement dans WT_MAIN_ROOT/doc.</p>
+<h2 id="demarrer-la-session-principale">Démarrer la session principale</h2>
+<h3 id="zzsh">zz.sh</h3>
+<pre><code>/home/pascal/development/bo.facile/doc/tools/zz.sh [--shell | --console | --server]
+</code></pre>
+<p>Lanceur personnel de Pascal, anciennement <code>open_bo.sh</code>. Rejoint le dépôt physique <code>/home/pascal/development/bo.facile</code> et exige la branche <code>master</code>, sans changer de branche. Une session graphique GNOME et les commandes <code>git</code>, <code>python3</code>, <code>docker</code> et <code>gnome-terminal</code> sont nécessaires.</p>
+<p>Les opérations se succèdent dans cet ordre :</p>
+<ol>
+<li>Vérifier que tous les ateliers de tâches sont fermés, hors dépôt principal. Un onglet géré encore vivant suffit à bloquer ; les terminaux ouverts manuellement hors des outils ne sont pas détectés. En cas de blocage, afficher les noms, branches et chemins concernés puis quitter avant le pull et toute action Docker. Aucun atelier n’est fermé automatiquement. Utiliser <code>worktree_status.sh</code>, puis <code>worktree_close.sh</code> depuis le principal pour les fermer.</li>
+<li>Actualiser <code>master</code> avec <code>git pull --ff-only</code>. Une divergence ou un échec interrompt le lancement.</li>
+<li>Exécuter <code>docker_stop_all.sh</code> et attendre sa réussite. Depuis <code>master</code>, cet arrêt concerne les conteneurs reconnus du projet principal, de la CI et des runtimes worktree ; les services d’autres tâches sont donc concernés.</li>
+<li>Démarrer les services Docker fondamentaux et le runtime principal.</li>
+<li>Ouvrir trois onglets GNOME : <strong>Codex</strong>, <strong>shell Docker</strong> et <strong>Merge</strong>. L’onglet Merge lance <code>merge_to_master.sh</code>, dont le rôle actuel est d’auditer l’intégration sans effectuer de fusion. La mise à jour interactive éventuelle de Codex ne bloque pas l’ouverture des autres onglets.</li>
+</ol>
+<p>Le deuxième onglet ouvre un shell Docker par défaut (<code>--shell</code>). <code>--console</code> le remplace par la console Rails et <code>--server</code> par le serveur. Chaque onglet conserve un Bash interactif après la sortie de sa commande. Les onglets sont ajoutés à la fenêtre GNOME appelante lorsqu’elle est identifiée ; sinon une nouvelle fenêtre est ouverte.</p>
+<p>Codex reçoit explicitement l’accès aux dossiers centraux <code>doc</code> et <code>sessions_codex</code>, ainsi que la consigne de lire <code>AGENTS.md</code>, puis <code>AGENTS-pascal.md</code>, et de reprendre <code>sessions_codex/master.jsont</code>.</p>
+<pre><code>/home/pascal/development/bo.facile/doc/tools/zz.sh
+/home/pascal/development/bo.facile/doc/tools/zz.sh --console
+/home/pascal/development/bo.facile/doc/tools/zz.sh --server
+/home/pascal/development/bo.facile/doc/tools/zz.sh --help
+</code></pre>
 <h2 id="rejoindre-et-gerer-les-ateliers">Rejoindre et gérer les ateliers</h2>
 <h3 id="worktree_reachsh">worktree_reach.sh</h3>
 <pre><code>worktree_reach.sh [tâche] [--no-update] [--prepare-only] [--mode mode]

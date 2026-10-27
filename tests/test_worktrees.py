@@ -844,9 +844,16 @@ class WorktreeTests(unittest.TestCase):
         import io
         self.status_record()
         output = io.StringIO()
-        with contextlib.redirect_stdout(output):
+        # Un atelier ouvert doit passer après le principal même s'il arrive en premier.
+        rows = sorted(c.worktrees(), key=lambda row: row['worktree'] != str(self.root))
+        with contextlib.redirect_stdout(output), patch.object(cli, 'worktrees', return_value=rows):
             cli.status_all()
         text = output.getvalue()
+        main_label = 'Worktree : %s\n' % self.main.name
+        task_label = 'Worktree : %s\n' % self.root.name
+        self.assertIn(main_label, text)
+        self.assertIn(task_label, text)
+        self.assertLess(text.index(main_label), text.index(task_label))
         self.assertIn('atelier OUVERT (onglets : Bash)', text)
         self.assertIn('1 atelier(s) de worktree actuellement ouvert(s).', text)
         self.assertIn('refs/heads/feature/1234_réglage', text)

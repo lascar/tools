@@ -419,11 +419,15 @@ def push(root, target, force=False):
 
 def status_all():
     opened = 0
+    entries = []
     for row in worktrees():
         root = Path(row['worktree'])
-        print('%s\n  %s' % (root, row.get('branch', 'detached')))
+        roles = atelier.open_roles(root) if root != MAIN else []
+        entries.append((row, root, roles))
+    # Tri stable : garder l'ordre Git dans chaque groupe et les ateliers ouverts en dernier.
+    for row, root, roles in sorted(entries, key=lambda entry: bool(entry[2])):
+        print('Worktree : %s\n  %s\n  %s' % (root.name, root, row.get('branch', 'detached')))
         if root != MAIN:
-            roles = atelier.open_roles(root)
             if roles:
                 opened += 1
                 titles = dict(atelier.ROLES)

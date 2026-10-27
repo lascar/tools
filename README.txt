@@ -2,7 +2,7 @@ Workflow worktree — index des outils
 
 Version HTML (README.html) · Version TXT (README.txt) · Configuration du .env (env/README.txt)
 
-Inventaire actualisé le 23 octobre 2026 : 29 commandes et 2 fichiers de support Bash au format .sh, ainsi que la commande worktree_prune sans extension (alias de worktree_prune.sh). Les versions Markdown servent de source ; chaque page existe aussi en HTML et TXT. Les liens du Markdown permettent de naviguer dans un lecteur Markdown ou sur une forge Git. Pour lire la documentation dans un navigateur local, ouvre la version HTML (README.html).
+Inventaire actualisé le 27 octobre 2026 : 30 commandes et 2 fichiers de support Bash au format .sh, ainsi que la commande worktree_prune sans extension (alias de worktree_prune.sh). Les versions Markdown servent de source ; chaque page existe aussi en HTML et TXT. Les liens du Markdown permettent de naviguer dans un lecteur Markdown ou sur une forge Git. Pour lire la documentation dans un navigateur local, ouvre la version HTML (README.html).
 
 Lire dans l’ordre
 
@@ -11,6 +11,10 @@ Lire dans l’ordre
 - Référence des scripts (doc/scripts.md) — arguments, effets et exemples des commandes actuelles.
 - Configuration du .env (env/README.txt) — rôle et syntaxe de chaque variable, commandes du serveur et de la console.
 - Modèle de configuration (.env.example) — exemple générique, à adapter seulement pour une nouvelle installation.
+
+Démarrer la session principale
+
+- zz.sh (doc/scripts.md#zzsh) — vérifier les ateliers fermés, actualiser master, relancer Docker et ouvrir Codex, le shell Docker et l’audit d’intégration.
 
 Rejoindre et gérer les ateliers
 
