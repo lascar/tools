@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import socket
 import subprocess
+import sys
 import time
 import uuid
 from _wt_common import *
@@ -25,6 +26,39 @@ APP_ALIAS = setting('APP_ALIAS', 'app')
 
 def docker(*args, **kw):
     return run(['docker', *args], **kw)
+
+
+def prune_unused_worktree_networks():
+    # Les labels limitent le nettoyage aux reseaux prives de nos ateliers.
+    projects = docker('network', 'ls', '--filter',
+                      'label=com.docker.compose.network=' + PRIVATE_NETWORK,
+                      '--format', '{{.Label "com.docker.compose.project"}}', capture=True).stdout.split()
+    for project in sorted(set(projects)):
+        if project == DOCKER_PROJECT or not project.startswith(DOCKER_PREFIX) or project == DOCKER_PREFIX:
+            continue
+        # Prune conserve aussi les reseaux references par des conteneurs arretes.
+        # Docker verifie leur utilisation au moment de la suppression.
+        docker('network', 'prune', '--force', '--filter',
+               'label=com.docker.compose.project=' + project, '--filter',
+               'label=com.docker.compose.network=' + PRIVATE_NETWORK)
+
+
+def compose_up(command, *options):
+    for attempt in range(2):
+        # Garder stdout visible et lire stderr sans pipe susceptible de se bloquer.
+        with tempfile.TemporaryFile(mode='w+') as errors:
+            result = run(command + ['up', *options], check=False, stderr=errors)
+            errors.seek(0)
+            diagnostic = errors.read()
+        if diagnostic:
+            print(diagnostic, end='', file=sys.stderr, flush=True)
+        if result.returncode == 0:
+            return result
+        if attempt or 'all predefined address pools have been fully subnetted' not in diagnostic.lower():
+            raise ToolError('Démarrage Docker en échec (%s) ; consulte les erreurs ci-dessus.' % result.returncode)
+        print('Plages réseau Docker épuisées : nettoyage des réseaux privés d’ateliers inutilisés, '
+              'puis une nouvelle tentative. Les réseaux utilisés sont conservés.', flush=True)
+        prune_unused_worktree_networks()
 
 
 def project_for(root):
@@ -300,7 +334,7 @@ def wait_for_server(root, service, timeout=60, require_console=True):
 
 
 def ensure_infrastructure(command):
-    if INFRA: run(command + ['up', '-d', '--no-recreate', *INFRA])
+    if INFRA: compose_up(command, '-d', '--no-recreate', *INFRA)
     if not setting_json('INFRA_PROBE', []): return
     deadline = time.monotonic() + 300
     while run(command + setting_json('INFRA_PROBE', []),
@@ -363,7 +397,7 @@ def activate(root, mode=DEFAULT_MODE):
         # Le projet ciblé possède uniquement les services applicatifs de ce worktree.
         run(command + ['stop', *APPS, PROXY_SERVICE])
         services = [CONSOLE_SERVICE, MODES[mode]] + ([] if mode == 'http' else [PROXY_SERVICE])
-        run(command + ['up', '-d', '--no-deps', '--force-recreate', *services])
+        compose_up(command, '-d', '--no-deps', '--force-recreate', *services)
         wait_for_server(root, MODES[mode])
         candidate.update(status='active', updated_at=now())
         write_state(candidate)
@@ -387,12 +421,12 @@ def ensure_service(root, role, mode=None):
             service = CONSOLE_SERVICE if role == 'console' else MODES[selected_mode]
             live = {s for s, p, _, running in app_mounts(True) if p == root and running}
             if selected_mode != 'http':
-                run(command + ['up', '-d', '--no-deps', '--no-recreate', PROXY_SERVICE])
+                compose_up(command, '-d', '--no-deps', '--no-recreate', PROXY_SERVICE)
             if service not in live:
                 # Relire le profil pour la prochaine création du service arrêté.
                 override = generate(root, state.get('port', MAIN_PORT))
                 command = base(override, project_for(root))
-                run(command + ['up', '-d', '--no-deps', service])
+                compose_up(command, '-d', '--no-deps', service)
             if role == 'server': wait_for_server(root, service, require_console=False)
             elif not any(s == CONSOLE_SERVICE and p == root and running for s, p, _, running in app_mounts(True)):
                 raise ToolError('La console s’est arrêtée au démarrage ; consulte docker logs --tail 80 %s-console-1.' % state['project'])

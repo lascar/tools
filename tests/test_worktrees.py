@@ -649,6 +649,7 @@ class WorktreeTests(unittest.TestCase):
         for call, role in zip(run.call_args_list, ('console', 'server')):
             args = call.args[0]
             self.assertEqual(args[:2], ['gnome-terminal', '--tab'])
+            self.assertEqual(args[args.index('--title')+1], atelier.PROJECT_NAME + '/' + atelier.BASE_BRANCH)
             self.assertNotIn('--window', args)
             self.assertEqual(args[args.index('--working-directory')+1], str(self.main))
             self.assertEqual(args[args.index('--')+1:],
@@ -1596,6 +1597,79 @@ class WorktreeTests(unittest.TestCase):
                  'port': port, 'activation_id': 'fixture-activation'}
         docker.write_state(state)
         return state
+
+    def test_network_cleanup_targets_only_private_worktree_networks(self):
+        project = docker.DOCKER_PREFIX + 'fixture'
+        listing = '\n'.join([project, project, docker.DOCKER_PROJECT,
+                             'unrelated-project', docker.DOCKER_PREFIX])
+        with patch.object(docker, 'docker', return_value=Mock(stdout=listing)) as command:
+            docker.prune_unused_worktree_networks()
+        self.assertEqual(command.call_count, 2)
+        self.assertEqual(command.call_args_list[0].args,
+                         ('network', 'ls', '--filter',
+                          'label=com.docker.compose.network=' + docker.PRIVATE_NETWORK,
+                          '--format', '{{.Label "com.docker.compose.project"}}'))
+        self.assertEqual(command.call_args.args,
+                         ('network', 'prune', '--force', '--filter',
+                          'label=com.docker.compose.project=' + project, '--filter',
+                          'label=com.docker.compose.network=' + docker.PRIVATE_NETWORK))
+
+    def test_compose_up_retries_pool_exhaustion_once_with_same_command(self):
+        calls = []
+        def execute(args, **kwargs):
+            calls.append(args)
+            if len(calls) == 1:
+                kwargs['stderr'].write('all predefined address pools have been fully subnetted\n')
+            return Mock(returncode=1 if len(calls) == 1 else 0)
+        with patch.object(docker, 'run', side_effect=execute), \
+                patch.object(docker, 'prune_unused_worktree_networks') as cleanup:
+            docker.compose_up(['docker', 'compose', '-p', 'fixture'], '-d', 'web')
+        self.assertEqual(calls, [['docker', 'compose', '-p', 'fixture', 'up', '-d', 'web']] * 2)
+        cleanup.assert_called_once_with()
+
+    def test_compose_up_preserves_diagnostics_and_does_not_clean_other_errors(self):
+        def execute(args, **kwargs):
+            kwargs['stderr'].write('permission denied\n')
+            return Mock(returncode=1)
+        import io
+        errors = io.StringIO()
+        with patch.object(docker, 'run', side_effect=execute) as run, \
+                patch.object(docker, 'prune_unused_worktree_networks') as cleanup, \
+                contextlib.redirect_stderr(errors):
+            with self.assertRaisesRegex(c.ToolError, 'Démarrage Docker en échec'):
+                docker.compose_up(['docker', 'compose'], '-d', 'web')
+        self.assertIn('permission denied', errors.getvalue())
+        run.assert_called_once()
+        cleanup.assert_not_called()
+
+    def test_compose_up_stops_after_second_pool_exhaustion(self):
+        def execute(args, **kwargs):
+            kwargs['stderr'].write('all predefined address pools have been fully subnetted\n')
+            return Mock(returncode=1)
+        with patch.object(docker, 'run', side_effect=execute) as run, \
+                patch.object(docker, 'prune_unused_worktree_networks') as cleanup:
+            with self.assertRaises(c.ToolError):
+                docker.compose_up(['docker', 'compose'], '-d', 'web')
+        self.assertEqual(run.call_count, 2)
+        cleanup.assert_called_once_with()
+
+    def test_compose_up_does_not_clean_successful_start(self):
+        with patch.object(docker, 'run', return_value=Mock(returncode=0)) as run, \
+                patch.object(docker, 'prune_unused_worktree_networks') as cleanup:
+            docker.compose_up(['docker', 'compose'], '-d', 'web')
+        run.assert_called_once()
+        cleanup.assert_not_called()
+
+    def test_compose_up_cleanup_failure_prevents_retry(self):
+        def execute(args, **kwargs):
+            kwargs['stderr'].write('all predefined address pools have been fully subnetted\n')
+            return Mock(returncode=1)
+        with patch.object(docker, 'run', side_effect=execute) as run, \
+                patch.object(docker, 'prune_unused_worktree_networks',
+                             side_effect=c.ToolError('nettoyage refusé')):
+            with self.assertRaisesRegex(c.ToolError, 'nettoyage refusé'):
+                docker.compose_up(['docker', 'compose'], '-d', 'web')
+        run.assert_called_once()
 
     def test_docker_stop_targets_own_project_and_preserves_other_worktree(self):
         other = self.runtime_fixture(self.main, port=3000)

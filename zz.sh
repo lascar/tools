@@ -11,7 +11,8 @@ fail() { printf 'Erreur : %s\n' "$*" >&2; exit 1; }
 if [[ ${1:-} == --help || ${1:-} == -h ]]; then
     printf 'Usage : zz.sh [--shell | --console | --server]\n'
     printf 'Exige que tous les ateliers de worktree soient fermés (hors master).\n'
-    printf 'Actualise master, arrête les conteneurs du projet, redémarre Docker et ouvre Codex, un shell Docker et merge_to_master.sh dans trois onglets GNOME.\n'
+    printf 'Actualise master, arrête les conteneurs du projet, redémarre Docker et ouvre quatre onglets GNOME : Codex, Docker, merge_to_master.sh et le rapport des tâches.\n'
+    printf 'Le rapport démarre automatiquement dans une nouvelle session Codex, en dernier (sixième onglet si deux sont déjà ouverts).\n'
     exit 0
 fi
 
@@ -25,12 +26,24 @@ if [[ ${1:-} == --_tab ]]; then
     case $2 in
         codex)
             # Le shell interactif charge NVM. La mise à jour reste dans cet
-            # onglet et ne bloque pas l’ouverture des deux autres.
+            # onglet et ne bloque pas l’ouverture des autres.
             exec bash -ic '
                 codex --add-dir "$1/doc" --add-dir "$1/sessions_codex" \
                     "Lis AGENTS.md puis AGENTS-pascal.md. Reprends le journal central $1/sessions_codex/master.jsont et tiens-le à jour."
                 result=$?
                 if (( result != 0 )); then printf "Codex terminé avec le code %s.\n" "$result" >&2; fi
+                exec bash -i
+            ' bash "$project_dir"
+            ;;
+        report)
+            [[ -r "$project_dir/doc/build_rapport_taches.txt" ]] || fail 'Prompt du rapport introuvable : doc/build_rapport_taches.txt'
+            # Un lancement sans resume ni fork cree une session dediee au rapport.
+            # Le shell interactif charge NVM comme dans l'onglet Codex principal.
+            exec bash -ic '
+                codex --add-dir "$1/doc" --add-dir "$1/sessions_codex" \
+                    "Cette nouvelle session est exclusivement consacrée au rapport de mes tâches Incwo. Lis et exécute les instructions de $1/doc/build_rapport_taches.txt."
+                result=$?
+                if (( result != 0 )); then printf "Rapport Codex terminé avec le code %s.\n" "$result" >&2; fi
                 exec bash -i
             ' bash "$project_dir"
             ;;
@@ -68,6 +81,7 @@ esac
 for binary in git python3 docker gnome-terminal; do
     command -v "$binary" >/dev/null || fail "Commande introuvable : $binary"
 done
+[[ -r "$project_dir/doc/build_rapport_taches.txt" ]] || fail 'Prompt du rapport introuvable : doc/build_rapport_taches.txt'
 [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]] || fail 'Une session graphique est nécessaire.'
 
 printf 'Vérification de la fermeture des worktrees…\n'
@@ -115,7 +129,8 @@ if [[ -n ${GNOME_TERMINAL_SCREEN:-} ]]; then
 else
     terminal+=(--window)
 fi
-terminal+=(--title='master — Codex' --working-directory="$project_dir" --command="bash '$self' --_tab codex"
-    --tab --title="master — $role" --working-directory="$project_dir" --command="bash '$self' --_tab $role"
-    --tab --title='master — Merge' --working-directory="$project_dir" --command="bash '$self' --_tab merge")
+terminal+=(--title='bo.facile/master' --working-directory="$project_dir" --command="bash '$self' --_tab codex"
+    --tab --title='bo.facile/master' --working-directory="$project_dir" --command="bash '$self' --_tab $role"
+    --tab --title='bo.facile/master' --working-directory="$project_dir" --command="bash '$self' --_tab merge"
+    --tab --title='bo.facile/rapport tâches' --working-directory="$project_dir" --command="bash '$self' --_tab report")
 "${terminal[@]}"

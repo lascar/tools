@@ -36,7 +36,7 @@ worktree_status.sh
 
 Ce lanceur personnel exige `master` dans le dépôt principal et tous les ateliers de tâches fermés. Vérifie leur état avec `worktree_status.sh` et ferme-les avec `worktree_close.sh` depuis le principal. Un atelier ouvert bloque le lancement avant toute actualisation Git ou action Docker.
 
-Le script effectue ensuite `git pull --ff-only`, attend la fin de `docker_stop_all.sh`, redémarre les services fondamentaux et le runtime principal, puis ouvre trois onglets : Codex avec le journal central de master, un shell Docker et `merge_to_master.sh` pour l’audit d’intégration. L’arrêt Docker concerne aussi les conteneurs du projet associés aux autres tâches et à la CI. `--console` ou `--server` remplace le shell du deuxième onglet. Voir la [fiche zz.sh](scripts.md#zzsh) pour les prérequis et le détail.
+Le script effectue ensuite `git pull --ff-only`, attend la fin de `docker_stop_all.sh`, redémarre les services fondamentaux et le runtime principal, puis ouvre quatre onglets : Codex avec le journal central de master, un shell Docker, `merge_to_master.sh` pour l’audit d’intégration et une nouvelle session Codex dédiée au rapport des tâches. Ce dernier onglet exécute automatiquement `doc/build_rapport_taches.txt`, qui prévoit la création de `doc/rapport_taches.html` puis son ouverture dans Firefox. Le prompt doit être présent avant le lancement. Le rapport est ajouté en dernier, donc en sixième position si deux onglets étaient déjà ouverts. L’arrêt Docker concerne aussi les conteneurs du projet associés aux autres tâches et à la CI. `--console` ou `--server` remplace le shell du deuxième onglet. Voir la [fiche zz.sh](scripts.md#zzsh) pour les prérequis et le détail.
 
 ## 2. Actualiser la base avant une nouvelle tâche
 

@@ -153,7 +153,7 @@ def open_master(root, mode=None):
     for role, title in setting_json('MAIN_ROLE_TITLES', {'console': 'Console', 'server': 'Service'}).items():
         # GNOME utilise le screen herite pour cibler la fenetre appelante.
         # Les arguments apres -- restent des argv, sans interpolation shell.
-        args = ['gnome-terminal', '--tab', '--title', BASE_BRANCH + ' — ' + title,
+        args = ['gnome-terminal', '--tab', '--title', PROJECT_NAME + '/' + BASE_BRANCH,
                 '--working-directory', str(root), '--', sys.executable,
                 str(TOOLS / 'worktree_tools.py'), '_master_tab', role]
         try:
@@ -231,7 +231,7 @@ def open_atelier(root, mode=DEFAULT_MODE, offer_patches=True):
             import shlex
             command = [sys.executable, str(TOOLS / 'worktree_tools.py'), '_tab',
                        str(root), role, generation]
-            args += ['--window' if i == 0 else '--tab', '--title', task + ' — ' + title,
+            args += ['--window' if i == 0 else '--tab', '--title', task,
                      '--working-directory', str(root), '--command', shlex.join(command)]
             if i == 0: args += ['--active']
         run(args)

@@ -24,11 +24,13 @@ Les opérations se succèdent dans cet ordre :
 2. Actualiser `master` avec `git pull --ff-only`. Une divergence ou un échec interrompt le lancement.
 3. Exécuter `docker_stop_all.sh` et attendre sa réussite. Depuis `master`, cet arrêt concerne les conteneurs reconnus du projet principal, de la CI et des runtimes worktree ; les services d’autres tâches sont donc concernés.
 4. Démarrer les services Docker fondamentaux et le runtime principal.
-5. Ouvrir trois onglets GNOME : **Codex**, **shell Docker** et **Merge**. L’onglet Merge lance `merge_to_master.sh`, dont le rôle actuel est d’auditer l’intégration sans effectuer de fusion. La mise à jour interactive éventuelle de Codex ne bloque pas l’ouverture des autres onglets.
+5. Ouvrir quatre onglets GNOME : **Codex**, **shell Docker**, **Merge** et **Rapport des tâches**. L’onglet Merge lance `merge_to_master.sh`, dont le rôle actuel est d’auditer l’intégration sans effectuer de fusion. La mise à jour interactive éventuelle de Codex ne bloque pas l’ouverture des autres onglets.
 
 Le deuxième onglet ouvre un shell Docker par défaut (`--shell`). `--console` le remplace par la console Rails et `--server` par le serveur. Chaque onglet conserve un Bash interactif après la sortie de sa commande. Les onglets sont ajoutés à la fenêtre GNOME appelante lorsqu’elle est identifiée ; sinon une nouvelle fenêtre est ouverte.
 
-Codex reçoit explicitement l’accès aux dossiers centraux `doc` et `sessions_codex`, ainsi que la consigne de lire `AGENTS.md`, puis `AGENTS-pascal.md`, et de reprendre `sessions_codex/master.jsont`.
+Le prompt personnel `doc/build_rapport_taches.txt` doit être lisible ; son absence bloque le lancement avant le pull et les actions Docker. Le quatrième onglet, nommé `bo.facile/rapport tâches`, démarre automatiquement une nouvelle session Codex, sans reprise ni bifurcation, qui lit et exécute ce prompt. Celui-ci prévoit la lecture des consignes du projet, la revue Incwo/Git/production, la génération de `doc/rapport_taches.html` et son ouverture dans un nouvel onglet Firefox, sous réserve des autorisations graphiques. Le prompt et le rapport restent hors du dépôt tools. Si deux onglets existaient déjà dans la fenêtre appelante, le rapport sera le sixième ; dans une nouvelle fenêtre, il sera le quatrième. Les trois premiers onglets portent le titre `bo.facile/master`.
+
+Les deux sessions Codex reçoivent l’accès aux dossiers centraux `doc` et `sessions_codex`. L’onglet Codex principal reçoit explicitement l’accès aux dossiers centraux `doc` et `sessions_codex`, ainsi que la consigne de lire `AGENTS.md`, puis `AGENTS-pascal.md`, et de reprendre `sessions_codex/master.jsont`.
 
 ```bash
 /home/pascal/development/bo.facile/doc/tools/zz.sh

@@ -14,7 +14,7 @@ Lire dans l’ordre
 
 Démarrer la session principale
 
-- zz.sh (doc/scripts.md#zzsh) — vérifier les ateliers fermés, actualiser master, relancer Docker et ouvrir Codex, le shell Docker et l’audit d’intégration.
+- zz.sh (doc/scripts.md#zzsh) — vérifier les ateliers fermés, actualiser master, relancer Docker et ouvrir Codex, le shell Docker, l’audit d’intégration et le rapport automatique des tâches.
 
 Rejoindre et gérer les ateliers
 
@@ -124,6 +124,10 @@ La fermeture collective s’arrête au premier refus (buffers Vim non enregistr�
 Le statut et la fermeture collective concernent les ateliers gérés par les outils. Un simple terminal ouvert manuellement dans un dossier de tâche ne suffit pas à déclarer un atelier ouvert.
 
 worktree_reach.sh crée ou rattache le worktree si nécessaire, ouvre un atelier fermé, ou affiche un atelier vivant. --no-update évite l’actualisation Git lors d’une ouverture. Sans tâche, la commande affiche le terminal principal existant sans actualisation ni démarrage du runtime.
+
+Les trois premiers onglets ouverts par zz.sh portent le titre bo.facile/master. Le dernier, bo.facile/rapport tâches, lance une nouvelle session Codex avec le prompt personnel doc/build_rapport_taches.txt : elle génère doc/rapport_taches.html, puis demande son ouverture dans Firefox. Ce prompt doit être lisible avant le démarrage ; il est conservé hors du dépôt tools. Le rapport occupe la sixième position si deux onglets étaient déjà ouverts, sinon il est simplement ajouté en dernier. Ceux des ateliers ouverts par worktree_reach.sh portent uniquement le nom de la tâche, sans suffixe de rôle d’onglet.
+
+Si un démarrage Docker échoue avec all predefined address pools have been fully subnetted, les outils nettoient automatiquement les réseaux privés inutilisés des projets d’ateliers, puis retentent le même démarrage une seule fois. Le nettoyage sélectionne les labels Compose du projet d’atelier et de son réseau privé. Docker conserve les réseaux référencés par un conteneur, même arrêté ; les réseaux du principal, les réseaux partagés, les volumes et les images sont préservés. Les autres erreurs et un second échec restent bloquants. Cette récupération couvre aussi les relances du serveur et de la console.
 
 Sans worktree rattaché, change_branch.sh 1234_ma_tache bascule sur la branche locale existante dans le dépôt courant, par un simple git checkout, sans pull ni fusion et sans créer de branche ou de worktree. Sans argument, la commande revient dans le dépôt principal et rétablit sa branche de référence si nécessaire, par un simple git checkout.
 
