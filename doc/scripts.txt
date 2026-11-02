@@ -45,6 +45,10 @@ worktree_reach.sh [tâche] [--no-update] [--prepare-only] [--mode mode]
 
 Commande habituelle pour rejoindre une tâche. Crée la branche si elle manque, rattache un worktree si nécessaire, ouvre un atelier fermé ou affiche un atelier vivant. Une création part de la base locale ; une ouverture existante suit l’actualisation habituelle, sauf option ou choix contraire. Un atelier vivant est seulement affiché, sans actualisation Git ni activation Docker.
 
+Après activation réussie du serveur, l’URL http://localhost:3000 du point 5 du fichier <tâche>_suivi.txt est remplacée par l’adresse réelle de l’atelier, avec son port et son protocole HTTP/HTTPS. Cette adresse est réajustée lors d’une activation ultérieure si elle change ; les autres lignes du suivi sont conservées. Avec --prepare-only, aucun serveur n’est activé et le modèle conserve son adresse jusqu’à l’activation.
+
+Au premier lancement de Codex dans le nouvel atelier, le message initial désigne explicitement doc/<tâche>_suivi.txt (ou le dossier documentaire configuré) et demande de le lire, puis d’attendre les instructions de Pascal sans exécuter ses étapes. Un suivi absent doit être signalé. Cette consigne s’applique aussi aux nouvelles sessions forcées ; une reprise de session existante conserve son comportement habituel.
+
 Sans tâche, affiche le terminal principal existant. Le dossier du terminal appelant est conservé. Une fenêtre ou un onglet manquant provoque une erreur ; l’affichage d’un atelier partiellement ouvert ne crée pas un deuxième atelier.
 
 worktree_reach.sh 1234_ma_tache

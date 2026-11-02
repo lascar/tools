@@ -102,6 +102,8 @@ worktree_reach.sh t_2345_mon_ticket
 
 Les commandes explicites restent disponibles : `worktree_new.sh` exige une nouvelle branche ; `worktree_open.sh` exige une branche déjà connue. Une préparation sans fenêtre ni Docker utilise `--prepare-only`.
 
+Dans un nouvel atelier, Codex reçoit le chemin exact `doc/<tâche>_suivi.txt`, lit ce suivi puis attend les instructions de Pascal avant d’en exécuter les étapes. Une session existante est reprise normalement. Après activation réussie du serveur, l’URL localhost du point 5 du suivi reflète le port réellement attribué et le protocole HTTP/HTTPS ; elle est réajustée si l’adresse change lors d’une activation ultérieure. Avec `--prepare-only`, cette mise à jour attend le démarrage du serveur.
+
 ## 4. Traiter les modifications lors d’une ouverture
 
 Si une tâche existante contient du travail local, l’ouverture avec actualisation propose un choix :

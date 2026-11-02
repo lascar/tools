@@ -385,6 +385,7 @@ def activate(root, mode=DEFAULT_MODE):
         if (old.get('status') == 'active' and old.get('project') == project_for(root)
                 and old.get('mode') == mode and old.get('port') == port and {CONSOLE_SERVICE, MODES[mode]} <= live):
             wait_for_server(root, MODES[mode])
+            sessions.update_manual_test_url(root, runtime_url(old))
             print('Docker est déjà actif pour %s : %s.' % (task, runtime_url(old)))
             return old
         print('Activation Docker : %s — %s (%s), %s://localhost:%d' %
@@ -401,6 +402,7 @@ def activate(root, mode=DEFAULT_MODE):
         wait_for_server(root, MODES[mode])
         candidate.update(status='active', updated_at=now())
         write_state(candidate)
+        sessions.update_manual_test_url(root, runtime_url(candidate))
         return candidate
 
 

@@ -1589,6 +1589,27 @@ class WorktreeTests(unittest.TestCase):
         self.assertEqual(args[args.index('-C')+1], str(self.root))
         self.assertEqual(args[args.index('--add-dir')+1], str(self.main / 'sessions_codex'))
         self.assertIn(str(self.main / 'doc'), [args[i+1] for i, arg in enumerate(args) if arg == '--add-dir'])
+        self.assertNotIn('puis attends mes instructions', args[-1])
+
+    def test_new_codex_session_reads_task_followup_and_waits(self):
+        sessions.prepare(self.root, new=True)
+        with patch.object(sessions, 'codex_binary', return_value='/bin/codex'):
+            args = sessions.codex_command(self.root)
+        self.assertNotIn('resume', args)
+        self.assertIn('Lis ensuite le fichier de suivi doc/1234_réglage_suivi.txt', args[-1])
+        self.assertIn('puis attends mes instructions', args[-1])
+        self.assertIn('Ne lance pas encore les étapes', args[-1])
+
+    def test_forced_new_codex_session_uses_configured_followup_directory(self):
+        sessions.prepare(self.root)
+        # --new-session doit ignorer meme un ancien lien de reprise casse.
+        (self.main / 'sessions_codex/1234_réglage.jsonl').symlink_to(self.main / 'absent.jsonl')
+        with patch.object(sessions, 'codex_binary', return_value='/bin/codex'), \
+                patch.dict(os.environ, WT_DOCUMENTS_DIR='notes'):
+            args = sessions.codex_command(self.root, new=True)
+        self.assertNotIn('resume', args)
+        self.assertIn('notes/1234_réglage_suivi.txt', args[-1])
+        self.assertIn('puis attends mes instructions', args[-1])
 
     def runtime_fixture(self, root=None, mode='http', port=3002, status='active'):
         root = root or self.root
@@ -1750,6 +1771,9 @@ class WorktreeTests(unittest.TestCase):
         run.assert_called_once()
 
     def test_activation_starts_own_project_without_stopping_others_or_infrastructure(self):
+        sessions.prepare(self.root, new=True)
+        notes = self.root / 'doc/1234_réglage_suivi.txt'
+        notes.write_text('5) guide les tests sur http://localhost:3000 dossier 170542\n')
         other = self.runtime_fixture(self.main, port=3000)
         commands = []
         def execute(args, **kwargs):
@@ -1772,7 +1796,35 @@ class WorktreeTests(unittest.TestCase):
         self.assertEqual(state['worktree'], str(self.root))
         self.assertEqual(state['status'], 'active')
         self.assertEqual(state['port'], 3002)
+        self.assertEqual(notes.read_text(), '5) guide les tests sur http://localhost:3002 dossier 170542\n')
         self.assertTrue(state['activation_id'])
+
+    def test_manual_test_url_preserves_history_and_tracks_https_port_changes(self):
+        sessions.prepare(self.root, new=True)
+        notes = self.root / 'doc/1234_réglage_suivi.txt'
+        original = ('Historique http://localhost:3000/ancien\n'
+                    '4) vérifier http://localhost:3000/autre\n'
+                    '5) guide les tests sur http://localhost:3000/path?q=1 dossier 170542\n'
+                    '   conserver http://localhost:3000/exemple\n')
+        notes.write_text(original)
+        sessions.update_manual_test_url(self.root, 'https://localhost:3012')
+        expected = original.replace('sur http://localhost:3000/path', 'sur https://localhost:3012/path')
+        self.assertEqual(notes.read_text(), expected)
+        sessions.update_manual_test_url(self.root, 'http://localhost:3005')
+        self.assertEqual(notes.read_text(), expected.replace('https://localhost:3012', 'http://localhost:3005'))
+        before = notes.stat().st_mtime_ns
+        sessions.update_manual_test_url(self.root, 'http://localhost:3005')
+        self.assertEqual(notes.stat().st_mtime_ns, before)
+
+    def test_manual_test_url_does_not_create_missing_notes_or_change_custom_host(self):
+        sessions.update_manual_test_url(self.root, 'http://localhost:3012')
+        self.assertFalse((self.root / 'doc/1234_réglage_suivi.txt').exists())
+        sessions.prepare(self.root, new=True)
+        notes = self.root / 'doc/1234_réglage_suivi.txt'
+        original = '5) recette sur https://dev.incwo.com et localhost:30000-exemple\n'
+        notes.write_text(original)
+        sessions.update_manual_test_url(self.root, 'http://localhost:3012')
+        self.assertEqual(notes.read_text(), original)
 
     def test_invalid_target_config_preserves_current_runtime(self):
         (self.main / c.setting('COMPOSE_FILE')).write_text('main')

@@ -1,5 +1,6 @@
 """Préparation locale et reprise de Codex sans changer de worktree."""
 import os
+import re
 from pathlib import Path
 import shutil
 from _wt_common import *
@@ -192,6 +193,22 @@ def prepare(root, new=False):
     shared_tmp(root)
 
 
+def update_manual_test_url(root, url):
+    if root == MAIN:
+        return
+    root, _, task = context(root, task=True)
+    notes = root / setting('DOCUMENTS_DIR', 'doc') / (task + '_suivi.txt')
+    if not notes.is_file():
+        return
+    text = notes.read_text()
+    # Le port n'est connu qu'apres activation. Ne toucher qu'au point de recette,
+    # pas aux URL conservees ailleurs dans l'historique personnel.
+    updated = re.sub(r'(?m)^([ \t]*5\)[^\r\n]*?)https?://localhost:\d+(?=[/\s?#]|$)',
+                     lambda match: match.group(1) + url, text)
+    if updated != text:
+        notes.write_text(updated)
+
+
 def metadata(path):
     with Path(path).open() as stream:
         for line in stream:
@@ -235,6 +252,7 @@ def codex_command(root, extra=(), new=False):
         raise ToolError('Le répertoire Codex est fixé au worktree ; option --cd interdite ici.')
     alias = MAIN / setting('JOURNAL_DIR', 'sessions_codex') / (task + '.jsonl')
     args = [binary]
+    resuming = False
     if not new and (alias.exists() or alias.is_symlink()):
         if not alias.exists(): raise ToolError('Lien de reprise cassé ; utilise --new-session ou répare le lien.')
         meta = metadata(alias)
@@ -244,6 +262,7 @@ def codex_command(root, extra=(), new=False):
         session_id = meta.get('session_id') or meta.get('id')
         if not session_id: raise ToolError('Identifiant de session absent.')
         args += ['resume', session_id]
+        resuming = True
     args += ['-C', str(root), '--add-dir', str(MAIN / setting('JOURNAL_DIR', 'sessions_codex')),
              '--add-dir', str(MAIN / setting('DOCUMENTS_DIR', 'doc')), *extra]
     args += [setting('AGENT_INSTRUCTIONS', 'Lis AGENTS.md.') + ' Reprends le journal central ' +
@@ -251,4 +270,11 @@ def codex_command(root, extra=(), new=False):
              ' et tiens-le à jour. Écris les documents exclusivement dans ' +
              str(MAIN / setting('DOCUMENTS_DIR', 'doc')) +
              ' ; doc dans le worktree doit pointer vers ce dossier central. Le code et Git restent dans ce worktree.']
+    if not resuming:
+        # Le suivi contient un plan de travail, pas un ordre de lancer ses etapes.
+        followup = Path(setting('DOCUMENTS_DIR', 'doc')) / (task + '_suivi.txt')
+        args[-1] += (' Lis ensuite le fichier de suivi ' + str(followup) +
+                     ' pour prendre connaissance de la tâche, puis attends mes instructions.'
+                     ' Ne lance pas encore les étapes décrites dans ce suivi.'
+                     ' Si le fichier est absent, signale-le et attends mes instructions.')
     return args
