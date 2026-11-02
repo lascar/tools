@@ -32,6 +32,27 @@ Ce lanceur personnel exige master dans le dépôt principal et tous les ateliers
 
 Le script effectue ensuite git pull --ff-only, attend la fin de docker_stop_all.sh, redémarre les services fondamentaux et le runtime principal, puis ouvre quatre onglets : Codex avec le journal central de master, un shell Docker, merge_to_master.sh pour l’audit d’intégration et une nouvelle session Codex dédiée au rapport des tâches. Ce dernier onglet exécute automatiquement doc/build_rapport_taches.txt, qui prévoit la création de doc/rapport_taches.html puis son ouverture dans Firefox. Le prompt doit être présent avant le lancement. Le rapport est ajouté en dernier, donc en sixième position si deux onglets étaient déjà ouverts. L’arrêt Docker concerne aussi les conteneurs du projet associés aux autres tâches et à la CI. --console ou --server remplace le shell du deuxième onglet. Voir la fiche zz.sh (scripts.md#zzsh) pour les prérequis et le détail.
 
+Rapport opérationnel des tâches
+
+Le prompt personnel doc/build_rapport_taches.txt est la source des consignes de génération. Il reste hors du dépôt tools, comme le rapport doc/rapport_taches.html et le journal sessions_codex/master.jsont. La session consulte Incwo et Git en lecture seule ; elle écrit le rapport local et actualise le journal, sans publier de message sur les tâches ni effectuer de déploiement.
+
+Le rapport couvre toutes les tâches ouvertes assignées à Pascal. Il présente les catégories dans cet ordre : Mon intervention, En attente de réponse, En attente, y compris dans la navigation et les effectifs introductifs. Chaque fiche affiche les dates de création et de dernière intervention substantielle immédiatement sous son titre, au format JJ/MM/AAAA. Les rappels automatiques et simples changements de date ou de classement ne constituent pas des interventions ; une intervention absente est indiquée comme telle.
+
+Dans chaque catégorie, les tâches suivent d’abord l’ordre visuel de la colonne En cours du Scrum « Tâches Pascal par priorité » (sélection 9238867, Scrum 60276638), relu via le MCP. Le rapprochement se fait par ID exact, sans transférer le rang d’une tâche d’agent ou de suivi à sa tâche parente. Les tâches sans rang viennent ensuite. Le tri secondaire est décroissant sur la dernière intervention, ou la création sans intervention, puis sur la création en cas d’égalité. La priorité Scrum ne change pas la catégorie fonctionnelle d’une tâche.
+
+Le chapitre Annonces à faire précède Les cinq prochaines actions proposées. Il retient uniquement les tâches dont la dernière intervention substantielle date de moins d’un mois calendaire, ou dont le dernier commit métier pertinent date de moins de sept jours. Les seuils sont stricts et calculés à la date de la revue. Le commit récent constitue une exception permettant de retenir une tâche aux échanges anciens ou absents. Une date inconnue ne satisfait pas le critère ; la création ne remplace pas l’intervention pour ce filtre.
+
+Ce chapitre distingue deux cas :
+
+- Production — « On peut fermer ? » : le dernier commit métier contient to_prod, la cage est présente en production et l’annonce n’a pas été faite pour cette livraison. Le contrôle du code par check_prod_commit et celui de l’activation par check_feature_flag restent distincts. Si le code ou l’activation manque ou reste incertain, l’entrée indique « À vérifier avant annonce ».
+- Développement — « C’est sur dev » : le dernier commit métier est intégré à master, sans annonce correspondant à cette version. L’intégration Git sert à repérer l’annonce attendue, sans prétendre prouver le déploiement sur le serveur de développement. Une annonce de production couvrant déjà cette version rend l’annonce dev inutile.
+
+Les échanges sont lus en tenant compte des formulations équivalentes : une annonce ancienne ne couvre pas automatiquement un correctif ultérieur. Un historique incomplet est signalé comme non vérifié. Les entrées comportent le titre cliquable de la tâche, le commit et les preuves utiles, dans l’ordre de priorité Scrum puis des dates. Les pauses et abandons restent applicables ; aucune annonce n’est publiée automatiquement. Les résultats de production concernent le serveur répondant et les contextes de dossier/utilisateur contrôlés.
+
+Les cinq prochaines actions sont choisies après construction des annonces, parmi les tâches actionnables restantes, selon le même ordre de priorité. Toutes les tâches citées dans les annonces sont exclues par ID, y compris les cas à vérifier et même pour une autre action sur la même tâche. Le rapport peut proposer moins de cinq actions. Une tâche exclue des annonces par le filtre de récence reste dans sa catégorie et redevient éligible aux actions selon les autres critères.
+
+La section Depuis le précédent rapport donne le titre et le lien Incwo de chaque tâche concernée, suivis du changement constaté. Le HTML conserve un instantané JSON des fiches, rangs Scrum, dates et preuves pour la comparaison suivante ; les contrôles de production doivent être renouvelés lors d’une nouvelle revue. Avant livraison, vérifier notamment le périmètre exhaustif, le tri, les liens, les dates sous les titres et l’absence d’ID commun aux annonces et aux cinq actions.
+
 2. Actualiser la base avant une nouvelle tâche
 
 Dans le dépôt principal, sur la branche principale configurée et avec un état adapté :

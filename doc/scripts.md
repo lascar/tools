@@ -30,6 +30,8 @@ Le deuxième onglet ouvre un shell Docker par défaut (`--shell`). `--console` l
 
 Le prompt personnel `doc/build_rapport_taches.txt` doit être lisible ; son absence bloque le lancement avant le pull et les actions Docker. Le quatrième onglet, nommé `bo.facile/rapport tâches`, démarre automatiquement une nouvelle session Codex, sans reprise ni bifurcation, qui lit et exécute ce prompt. Celui-ci prévoit la lecture des consignes du projet, la revue Incwo/Git/production, la génération de `doc/rapport_taches.html` et son ouverture dans un nouvel onglet Firefox, sous réserve des autorisations graphiques. Le prompt et le rapport restent hors du dépôt tools. Si deux onglets existaient déjà dans la fenêtre appelante, le rapport sera le sixième ; dans une nouvelle fenêtre, il sera le quatrième. Les trois premiers onglets portent le titre `bo.facile/master`.
 
+Le prompt définit le contenu du rapport : annonces récentes à faire, cinq actions sans doublon avec ces annonces, puis tâches classées par catégorie, priorité Scrum et dates. Ces règles sont appliquées par la session Codex, pas par le lanceur Bash. Voir les [règles du rapport opérationnel](workflow.md#rapport-operationnel-des-taches).
+
 Les deux sessions Codex reçoivent l’accès aux dossiers centraux `doc` et `sessions_codex`. L’onglet Codex principal reçoit explicitement l’accès aux dossiers centraux `doc` et `sessions_codex`, ainsi que la consigne de lire `AGENTS.md`, puis `AGENTS-pascal.md`, et de reprendre `sessions_codex/master.jsont`.
 
 ```bash
