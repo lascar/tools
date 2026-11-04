@@ -93,7 +93,7 @@ worktree_prune 30             # retirer les worktrees éligibles sans sauvegarde
 <h3 id="worktree_switchsh">worktree_switch.sh</h3>
 <pre><code>worktree_switch.sh [tâche]
 </code></pre>
-<p>Affiche le terminal principal sans argument, ou l’onglet d’agent d’une tâche déjà ouverte. Utilise la session GNOME existante, sans créer de fenêtre, modifier Git ou activer Docker.</p>
+<p>Sans argument, propose un menu numéroté des worktrees dont l’onglet Codex est ouvert, ainsi que le terminal principal s’il est disponible. Saisir un numéro active le terminal correspondant ; Entrée, 0 ou q annule. Avec une tâche en argument, affiche directement son onglet d’agent déjà ouvert. Utilise la session GNOME existante, sans créer de fenêtre, modifier Git ou activer Docker.</p>
 <p>Pour le principal, recherche un shell dont le dossier physique est la racine principale et préfère le plus ancien. Pour une tâche, nécessite un superviseur d’agent vivant.</p>
 <h3 id="worktree_statussh">worktree_status.sh</h3>
 <pre><code>worktree_status.sh

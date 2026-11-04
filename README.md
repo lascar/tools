@@ -22,7 +22,7 @@ Inventaire actualisé le 27 octobre 2026 : **30 commandes et 2 fichiers de suppo
 - [worktree_new.sh](doc/scripts.md#worktree_newsh) — créer explicitement une nouvelle branche et son worktree.
 - [worktree_open.sh](doc/scripts.md#worktree_opensh) — ouvrir une branche existante dans son worktree.
 - [worktree_open_current.sh](doc/scripts.md#worktree_open_currentsh) — ouvrir l’atelier du worktree courant.
-- [worktree_switch.sh](doc/scripts.md#worktree_switchsh) — afficher un terminal existant.
+- [worktree_switch.sh](doc/scripts.md#worktree_switchsh) — choisir un worktree ouvert et afficher son terminal.
 - [worktree_status.sh](doc/scripts.md#worktree_statussh) — afficher l’état Git des worktrees, leurs ateliers ouverts ou fermés et le total ouvert.
 - [worktree_close.sh](doc/scripts.md#worktree_closesh) — fermer un atelier ; sans argument depuis le principal, fermer tous les ateliers ouverts en conservant les worktrees.
 - [worktree_remove.sh](doc/scripts.md#worktree_removesh) — supprimer explicitement un worktree fermé et son dossier, sans sauvegarde.

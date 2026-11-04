@@ -709,6 +709,35 @@ class WorktreeTests(unittest.TestCase):
             self.assertEqual(command.call_count, 2)
             self.assertEqual(run.call_count, 2)
 
+    def test_switch_menu_filters_closed_worktrees_and_retries_invalid_choice(self):
+        with patch.object(cli, 'worktrees', return_value=[
+                {'worktree': str(self.main), 'branch': 'refs/heads/master'},
+                {'worktree': str(self.root), 'branch': 'refs/heads/feature/1234_réglage'},
+                {'worktree': '/closed', 'branch': 'refs/heads/feature/closed'}]), \
+                patch.object(atelier, 'open_roles', side_effect=lambda root: ['codex'] if root == self.root else []), \
+                patch.object(atelier, 'master_terminal_target', return_value=('service', 'screen')), \
+                patch.object(cli.os, 'isatty', return_value=True), \
+                patch('builtins.input', side_effect=['9', '2']), \
+                patch.object(atelier, 'worktree_switch') as switch:
+            cli.switch_menu()
+        switch.assert_called_once_with(self.root)
+
+    def test_switch_menu_cancel_preserves_terminals(self):
+        with patch.object(cli, 'worktrees', return_value=[]), \
+                patch.object(atelier, 'master_terminal_target', return_value=('service', 'screen')), \
+                patch.object(cli.os, 'isatty', return_value=True), \
+                patch('builtins.input', return_value=''), \
+                patch.object(atelier, 'worktree_switch') as switch:
+            cli.switch_menu()
+        switch.assert_not_called()
+
+    def test_switch_menu_without_open_terminal_does_not_prompt(self):
+        with patch.object(cli, 'worktrees', return_value=[]), \
+                patch.object(atelier, 'master_terminal_target', side_effect=c.ToolError('absent')), \
+                patch('builtins.input') as prompt:
+            cli.switch_menu()
+        prompt.assert_not_called()
+
     def test_switch_worktree_activates_exact_screen_without_docker(self):
         identifier = 'f0873d17-a8d8-4694-8ecc-9ea2eeb24321'
         with patch.object(atelier, 'terminal_target', return_value=(':1.89', identifier)), \

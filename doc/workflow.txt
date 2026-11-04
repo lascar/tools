@@ -115,7 +115,7 @@ Pour revenir à l’affichage du terminal principal :
 
 worktree_reach.sh
 
-worktree_switch.sh offre aussi l’affichage direct d’un terminal existant, avec ou sans nom de tâche. Il ne crée pas de fenêtre. Si le terminal principal n’est pas retrouvé, ouvre un terminal dans le dépôt principal. Un atelier partiellement ouvert doit être fermé avant d’être rouvert.
+worktree_switch.sh propose sans argument un menu des worktrees dont l’onglet Codex est ouvert et du terminal principal disponible. Choisis un numéro pour afficher son terminal ; Entrée, 0 ou q annule. Avec un nom de tâche, il affiche directement son terminal existant. Il ne crée pas de fenêtre. Si le terminal principal n’est pas retrouvé, ouvre un terminal dans le dépôt principal. Un atelier partiellement ouvert doit être fermé avant d’être rouvert.
 
 6. Faire une modification rapide sans atelier complet
 

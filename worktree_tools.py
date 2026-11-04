@@ -63,6 +63,43 @@ def existing_worktree(task):
     return root
 
 
+def switch_menu():
+    # Les worktrees Git peuvent exister sans terminal : ne proposer que les
+    # ateliers dont l'onglet Codex est encore vivant, puis revalider au switch.
+    targets = []
+    for row in worktrees():
+        root = Path(row['worktree'])
+        if root != MAIN and 'prunable' not in row and 'codex' in atelier.open_roles(root):
+            label = row.get('branch', root.name).replace('refs/heads/', '', 1)
+            targets.append((root, label))
+    try:
+        atelier.master_terminal_target()
+    except ToolError:
+        pass  # Le terminal principal n'est pas toujours ouvert.
+    else:
+        targets.insert(0, (None, BASE_BRANCH + ' (dépôt principal)'))
+    if not targets:
+        print('Aucun terminal de worktree ouvert.')
+        return
+    if not os.isatty(0):
+        raise ToolError('Relance worktree_switch.sh dans un terminal pour choisir un worktree.')
+    print('Worktrees ouverts :')
+    for index, (root, label) in enumerate(targets, 1):
+        print('%s. %s — %s' % (index, label, root or MAIN))
+    print('0. Annuler')
+    while True:
+        try:
+            choice = input('Ton choix [0] : ').strip()
+        except (EOFError, KeyboardInterrupt):
+            print('\nBascule annulée.')
+            return
+        if choice in ('', '0', 'q', 'Q'):
+            return
+        if choice.isascii() and choice.isdecimal() and 1 <= int(choice) <= len(targets):
+            return atelier.worktree_switch(targets[int(choice) - 1][0])
+        print('Choisis un numéro de la liste, ou 0 pour annuler.')
+
+
 def local_changes_choice(root):
     if not os.isatty(0):
         raise ToolError('Modifications locales dans %s ; relance dans un terminal pour choisir, ou utilise --no-update.' % root)
@@ -507,7 +544,7 @@ def parser():
     q = sub.add_parser('worktree_close')
     q.add_argument('task', nargs='?', help='Tâche à fermer ; sans argument, le worktree courant ou tous les ateliers ouverts depuis le dépôt principal')
     q = sub.add_parser('worktree_switch')
-    q.add_argument('task', nargs='?', help=f'Tâche à afficher ; sans argument, retour au terminal {BASE_BRANCH}')
+    q.add_argument('task', nargs='?', help='Tâche à afficher ; sans argument, menu des worktrees ouverts')
     q = sub.add_parser('worktree_lance_master', help=f'Ouvrir la console et le serveur {BASE_BRANCH} dans deux onglets du terminal courant')
     q.add_argument('--mode', choices=list(runtime.MODES), default=None,
                    help='Mode serveur ; par défaut, conserver le mode actif, sinon http')
@@ -553,7 +590,7 @@ def main():
     if a.command == 'worktree_lance_master': return atelier.open_master(root, a.mode)
     if a.command == '_master_tab': return atelier.master_tab(root, a.role)
     if a.command == 'worktree_switch':
-        return atelier.worktree_switch(existing_worktree(a.task) if a.task else None)
+        return atelier.worktree_switch(existing_worktree(a.task)) if a.task else switch_menu()
     if a.command == 'worktree_close':
         if not a.task and root == MAIN:
             return atelier.close_all()
