@@ -51,6 +51,12 @@ worktree_reach.sh [tâche] [--no-update] [--prepare-only] [--mode mode]
 
 Commande habituelle pour rejoindre une tâche. Crée la branche si elle manque, rattache un worktree si nécessaire, ouvre un atelier fermé ou affiche un atelier vivant. Une création part de la base locale ; une ouverture existante suit l’actualisation habituelle, sauf option ou choix contraire. Un atelier vivant est seulement affiché, sans actualisation Git ni activation Docker.
 
+Pour rouvrir un atelier existant fermé, sans --no-update et lorsque le choix de conservation du travail autorise la fusion, le script exécute un fetch de origin/master, avance le master local en avance rapide si nécessaire, puis fusionne la version récupérée dans la branche de tâche si elle ne la contient pas déjà. Il ne lance pas directement git pull. Un master local divergent provoque un arrêt.
+
+Avec --no-update, cette ouverture évite le fetch, la mise à jour du master local et la fusion dans la tâche. Un atelier déjà vivant est seulement affiché, même sans cette option. Une branche nouvellement créée part de la base locale sans cette actualisation.
+
+Si GitHub refuse l’authentification SSH pendant le fetch (Permission denied (publickey)), cette étape échoue avant la mise à jour du master local et la fusion dans la tâche. Pour rejoindre l’atelier sans attendre le rétablissement de l’accès, relancer avec --no-update ; les nouveautés distantes ne seront pas intégrées.
+
 Après activation réussie du serveur, l’URL `http://localhost:3000` du point 5 du fichier `<tâche>_suivi.txt` est remplacée par l’adresse réelle de l’atelier, avec son port et son protocole HTTP/HTTPS. Cette adresse est réajustée lors d’une activation ultérieure si elle change ; les autres lignes du suivi sont conservées. Avec `--prepare-only`, aucun serveur n’est activé et le modèle conserve son adresse jusqu’à l’activation.
 
 Au premier lancement de Codex dans le nouvel atelier, le message initial désigne explicitement `doc/<tâche>_suivi.txt` (ou le dossier documentaire configuré) et demande de le lire, puis d’attendre les instructions de Pascal sans exécuter ses étapes. Un suivi absent doit être signalé. Cette consigne s’applique aussi aux nouvelles sessions forcées ; une reprise de session existante conserve son comportement habituel.
