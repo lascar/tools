@@ -26,7 +26,7 @@ nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
 <p>La racine principale, les conventions Git et les services viennent du <code>.env</code>. Les noms historiques contenant <code>master</code> restent des noms de commandes ; ils utilisent la branche principale configurée. Les patchs, archives et fichiers <code>.done</code> restent exclusivement dans WT_MAIN_ROOT/doc.</p>
 <h2 id="demarrer-la-session-principale">Démarrer la session principale</h2>
 <h3 id="zzsh">zz.sh</h3>
-<pre><code>/home/pascal/development/bo.facile/doc/tools/zz.sh [--shell | --console | --server]
+<pre><code>/home/pascal/development/bo.facile/doc/tools/zz.sh [--shell | --console | --server] [--no-report]
 </code></pre>
 <p>Lanceur personnel de Pascal, anciennement <code>open_bo.sh</code>. Rejoint le dépôt physique <code>/home/pascal/development/bo.facile</code> et exige la branche <code>master</code>, sans changer de branche. Une session graphique GNOME et les commandes <code>git</code>, <code>python3</code>, <code>docker</code> et <code>gnome-terminal</code> sont nécessaires.</p>
 <p>Les opérations se succèdent dans cet ordre :</p>
@@ -38,12 +38,16 @@ nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
 <li>Ouvrir quatre onglets GNOME : <strong>Codex</strong>, <strong>shell Docker</strong>, <strong>Merge</strong> et <strong>Rapport des tâches</strong>. L’onglet Merge lance <code>merge_to_master.sh</code>, dont le rôle actuel est d’auditer l’intégration sans effectuer de fusion. La mise à jour interactive éventuelle de Codex ne bloque pas l’ouverture des autres onglets.</li>
 </ol>
 <p>Le deuxième onglet ouvre un shell Docker par défaut (<code>--shell</code>). <code>--console</code> le remplace par la console Rails et <code>--server</code> par le serveur. Chaque onglet conserve un Bash interactif après la sortie de sa commande. Les onglets sont ajoutés à la fenêtre GNOME appelante lorsqu’elle est identifiée ; sinon une nouvelle fenêtre est ouverte.</p>
-<p>Le prompt personnel <code>doc/build_rapport_taches.txt</code> doit être lisible ; son absence bloque le lancement avant le pull et les actions Docker. Le quatrième onglet, nommé <code>bo.facile/rapport tâches</code>, démarre automatiquement une nouvelle session Codex, sans reprise ni bifurcation, qui lit et exécute ce prompt. Celui-ci prévoit la lecture des consignes du projet, la revue Incwo/Git/production, la génération de <code>doc/rapport_taches.html</code> et son ouverture dans un nouvel onglet Firefox, sous réserve des autorisations graphiques. Le prompt et le rapport restent hors du dépôt tools. Si deux onglets existaient déjà dans la fenêtre appelante, le rapport sera le sixième ; dans une nouvelle fenêtre, il sera le quatrième. Les trois premiers onglets portent le titre <code>bo.facile/master</code>.</p>
+<p>Par défaut, le prompt personnel <code>doc/build_rapport_taches.txt</code> doit être lisible ; son absence bloque le lancement avant le pull et les actions Docker. Le quatrième onglet, nommé <code>bo.facile/rapport tâches</code>, démarre automatiquement une nouvelle session Codex, sans reprise ni bifurcation, qui lit et exécute ce prompt. Celui-ci prévoit la lecture des consignes du projet, la revue Incwo/Git/production, la génération de <code>doc/rapport_taches.html</code> et son ouverture dans un nouvel onglet Firefox, sous réserve des autorisations graphiques. Le prompt et le rapport restent hors du dépôt tools. Si deux onglets existaient déjà dans la fenêtre appelante, le rapport sera le sixième ; dans une nouvelle fenêtre, il sera le quatrième. Les trois premiers onglets portent le titre <code>bo.facile/master</code>.</p>
+<p>Avec <code>--no-report</code>, seuls les trois onglets Codex, Docker et Merge sont ouverts : aucune session de rapport ne démarre et le fichier <code>doc/build_rapport_taches.txt</code> n’est pas requis. Cette option se combine avec un seul mode <code>--shell</code>, <code>--console</code> ou <code>--server</code>, dans n’importe quel ordre. Sans cette option, le rapport reste automatique.</p>
 <p>Le prompt définit le contenu du rapport : annonces récentes à faire, cinq actions limitées aux tâches avec un rang Scrum vérifié et sans doublon avec ces annonces, puis tâches classées par catégorie et priorité Scrum, avec la section finale « Tâches en cours mais hors scrum ». Pour ces dernières, le prompt autorise uniquement l’ajout de la note interne « cette tâche n&#x27;est pas dans mon scrum », après vérification de toutes les notes et sans doublon avec la graphie sans accent. Ces règles sont appliquées par la session Codex, pas par le lanceur Bash. Voir les <a href="workflow.html#rapport-operationnel-des-taches">règles du rapport opérationnel</a>.</p>
 <p>Les deux sessions Codex reçoivent l’accès aux dossiers centraux <code>doc</code> et <code>sessions_codex</code>. L’onglet Codex principal reçoit explicitement l’accès aux dossiers centraux <code>doc</code> et <code>sessions_codex</code>, ainsi que la consigne de lire <code>AGENTS.md</code>, puis <code>AGENTS-pascal.md</code>, et de reprendre <code>sessions_codex/master.jsont</code>.</p>
 <pre><code>/home/pascal/development/bo.facile/doc/tools/zz.sh
 /home/pascal/development/bo.facile/doc/tools/zz.sh --console
 /home/pascal/development/bo.facile/doc/tools/zz.sh --server
+/home/pascal/development/bo.facile/doc/tools/zz.sh --no-report
+/home/pascal/development/bo.facile/doc/tools/zz.sh --console --no-report
+/home/pascal/development/bo.facile/doc/tools/zz.sh --no-report --server
 /home/pascal/development/bo.facile/doc/tools/zz.sh --help
 </code></pre>
 <h2 id="rejoindre-et-gerer-les-ateliers">Rejoindre et gérer les ateliers</h2>
@@ -51,7 +55,6 @@ nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
 <pre><code>worktree_reach.sh [tâche] [--no-update] [--prepare-only] [--mode mode]
 </code></pre>
 <p>Commande habituelle pour rejoindre une tâche. Crée la branche si elle manque, rattache un worktree si nécessaire, ouvre un atelier fermé ou affiche un atelier vivant. Une création part de la base locale ; une ouverture existante suit l’actualisation habituelle, sauf option ou choix contraire. Un atelier vivant est seulement affiché, sans actualisation Git ni activation Docker.</p>
-
 <p>Pour rouvrir un atelier existant fermé, sans --no-update et lorsque le choix de conservation du travail autorise la fusion, le script exécute un fetch de origin/master, avance le master local en avance rapide si nécessaire, puis fusionne la version récupérée dans la branche de tâche si elle ne la contient pas déjà. Il ne lance pas directement git pull. Un master local divergent provoque un arrêt.</p>
 <p>Avec --no-update, cette ouverture évite le fetch, la mise à jour du master local et la fusion dans la tâche. Un atelier déjà vivant est seulement affiché, même sans cette option. Une branche nouvellement créée part de la base locale sans cette actualisation.</p>
 <p>Si GitHub refuse l’authentification SSH pendant le fetch (Permission denied (publickey)), cette étape échoue avant la mise à jour du master local et la fusion dans la tâche. Pour rejoindre l’atelier sans attendre le rétablissement de l’accès, relancer avec --no-update ; les nouveautés distantes ne seront pas intégrées.</p>
@@ -97,7 +100,7 @@ worktree_prune 30             # retirer les worktrees éligibles sans sauvegarde
 <h3 id="worktree_switchsh">worktree_switch.sh</h3>
 <pre><code>worktree_switch.sh [tâche]
 </code></pre>
-<p>Sans argument, propose un menu numéroté des worktrees dont l’onglet Codex est ouvert, ainsi que le terminal principal s’il est disponible. Saisir un numéro active le terminal correspondant ; Entrée, 0 ou q annule. Avec une tâche en argument, affiche directement son onglet d’agent déjà ouvert. Utilise la session GNOME existante, sans créer de fenêtre, modifier Git ou activer Docker.</p>
+<p>Sans argument, propose un menu numéroté des worktrees dont l’onglet Codex est ouvert, ainsi que le terminal principal s’il est disponible. Saisir un numéro active le terminal correspondant ; Entrée, <code>0</code> ou <code>q</code> annule. Avec une tâche en argument, affiche directement son onglet d’agent déjà ouvert. Utilise la session GNOME existante, sans créer de fenêtre, modifier Git ou activer Docker.</p>
 <p>Pour le principal, recherche un shell dont le dossier physique est la racine principale et préfère le plus ancien. Pour une tâche, nécessite un superviseur d’agent vivant.</p>
 <h3 id="worktree_statussh">worktree_status.sh</h3>
 <pre><code>worktree_status.sh

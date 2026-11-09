@@ -9,10 +9,11 @@ self="$tools_dir/zz.sh"
 fail() { printf 'Erreur : %s\n' "$*" >&2; exit 1; }
 
 if [[ ${1:-} == --help || ${1:-} == -h ]]; then
-    printf 'Usage : zz.sh [--shell | --console | --server]\n'
+    printf 'Usage : zz.sh [--shell | --console | --server] [--no-report]\n'
     printf 'Exige que tous les ateliers de worktree soient fermés (hors master).\n'
     printf 'Actualise master, arrête les conteneurs du projet, redémarre Docker et ouvre quatre onglets GNOME : Codex, Docker, merge_to_master.sh et le rapport des tâches.\n'
     printf 'Le rapport démarre automatiquement dans une nouvelle session Codex, en dernier (sixième onglet si deux sont déjà ouverts).\n'
+    printf 'Avec --no-report, seuls les trois onglets Codex, Docker et merge_to_master.sh sont ouverts.\n'
     exit 0
 fi
 
@@ -70,18 +71,26 @@ if [[ ${1:-} == --_tab ]]; then
 fi
 
 role=shell
-case ${1:-} in
-    --server) role=server ;;
-    --console) role=console ;;
-    ''|--shell) ;;
-    *) fail 'Utilise zz.sh --help.' ;;
-esac
-(( $# <= 1 )) || fail 'Trop d’arguments.'
+report_enabled=true
+role_selected=false
+for argument in "$@"; do
+    case $argument in
+        --server|--console|--shell)
+            [[ $role_selected == false ]] || fail 'Choisis un seul mode : --shell, --console ou --server.'
+            role=${argument#--}
+            role_selected=true
+            ;;
+        --no-report) report_enabled=false ;;
+        *) fail 'Utilise zz.sh --help.' ;;
+    esac
+done
 
 for binary in git python3 docker gnome-terminal; do
     command -v "$binary" >/dev/null || fail "Commande introuvable : $binary"
 done
-[[ -r "$project_dir/doc/build_rapport_taches.txt" ]] || fail 'Prompt du rapport introuvable : doc/build_rapport_taches.txt'
+if [[ $report_enabled == true ]]; then
+    [[ -r "$project_dir/doc/build_rapport_taches.txt" ]] || fail 'Prompt du rapport introuvable : doc/build_rapport_taches.txt'
+fi
 [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]] || fail 'Une session graphique est nécessaire.'
 
 printf 'Vérification de la fermeture des worktrees…\n'
@@ -131,6 +140,8 @@ else
 fi
 terminal+=(--title='bo.facile/master' --working-directory="$project_dir" --command="bash '$self' --_tab codex"
     --tab --title='bo.facile/master' --working-directory="$project_dir" --command="bash '$self' --_tab $role"
-    --tab --title='bo.facile/master' --working-directory="$project_dir" --command="bash '$self' --_tab merge"
-    --tab --title='bo.facile/rapport tâches' --working-directory="$project_dir" --command="bash '$self' --_tab report")
+    --tab --title='bo.facile/master' --working-directory="$project_dir" --command="bash '$self' --_tab merge")
+if [[ $report_enabled == true ]]; then
+    terminal+=(--tab --title='bo.facile/rapport tâches' --working-directory="$project_dir" --command="bash '$self' --_tab report")
+fi
 "${terminal[@]}"

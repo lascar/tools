@@ -12,7 +12,7 @@ Démarrer la session principale
 
 zz.sh
 
-/home/pascal/development/bo.facile/doc/tools/zz.sh [--shell | --console | --server]
+/home/pascal/development/bo.facile/doc/tools/zz.sh [--shell | --console | --server] [--no-report]
 
 Lanceur personnel de Pascal, anciennement open_bo.sh. Rejoint le dépôt physique /home/pascal/development/bo.facile et exige la branche master, sans changer de branche. Une session graphique GNOME et les commandes git, python3, docker et gnome-terminal sont nécessaires.
 
@@ -26,7 +26,9 @@ Les opérations se succèdent dans cet ordre :
 
 Le deuxième onglet ouvre un shell Docker par défaut (--shell). --console le remplace par la console Rails et --server par le serveur. Chaque onglet conserve un Bash interactif après la sortie de sa commande. Les onglets sont ajoutés à la fenêtre GNOME appelante lorsqu’elle est identifiée ; sinon une nouvelle fenêtre est ouverte.
 
-Le prompt personnel doc/build_rapport_taches.txt doit être lisible ; son absence bloque le lancement avant le pull et les actions Docker. Le quatrième onglet, nommé bo.facile/rapport tâches, démarre automatiquement une nouvelle session Codex, sans reprise ni bifurcation, qui lit et exécute ce prompt. Celui-ci prévoit la lecture des consignes du projet, la revue Incwo/Git/production, la génération de doc/rapport_taches.html et son ouverture dans un nouvel onglet Firefox, sous réserve des autorisations graphiques. Le prompt et le rapport restent hors du dépôt tools. Si deux onglets existaient déjà dans la fenêtre appelante, le rapport sera le sixième ; dans une nouvelle fenêtre, il sera le quatrième. Les trois premiers onglets portent le titre bo.facile/master.
+Par défaut, le prompt personnel doc/build_rapport_taches.txt doit être lisible ; son absence bloque le lancement avant le pull et les actions Docker. Le quatrième onglet, nommé bo.facile/rapport tâches, démarre automatiquement une nouvelle session Codex, sans reprise ni bifurcation, qui lit et exécute ce prompt. Celui-ci prévoit la lecture des consignes du projet, la revue Incwo/Git/production, la génération de doc/rapport_taches.html et son ouverture dans un nouvel onglet Firefox, sous réserve des autorisations graphiques. Le prompt et le rapport restent hors du dépôt tools. Si deux onglets existaient déjà dans la fenêtre appelante, le rapport sera le sixième ; dans une nouvelle fenêtre, il sera le quatrième. Les trois premiers onglets portent le titre bo.facile/master.
+
+Avec --no-report, seuls les trois onglets Codex, Docker et Merge sont ouverts : aucune session de rapport ne démarre et le fichier doc/build_rapport_taches.txt n’est pas requis. Cette option se combine avec un seul mode --shell, --console ou --server, dans n’importe quel ordre. Sans cette option, le rapport reste automatique.
 
 Le prompt définit le contenu du rapport : annonces récentes à faire, cinq actions limitées aux tâches avec un rang Scrum vérifié et sans doublon avec ces annonces, puis tâches classées par catégorie et priorité Scrum, avec la section finale « Tâches en cours mais hors scrum ». Pour ces dernières, le prompt autorise uniquement l’ajout de la note interne « cette tâche n'est pas dans mon scrum », après vérification de toutes les notes et sans doublon avec la graphie sans accent. Ces règles sont appliquées par la session Codex, pas par le lanceur Bash. Voir les règles du rapport opérationnel (workflow.md#rapport-operationnel-des-taches).
 
@@ -35,6 +37,9 @@ Les deux sessions Codex reçoivent l’accès aux dossiers centraux doc et sessi
 /home/pascal/development/bo.facile/doc/tools/zz.sh
 /home/pascal/development/bo.facile/doc/tools/zz.sh --console
 /home/pascal/development/bo.facile/doc/tools/zz.sh --server
+/home/pascal/development/bo.facile/doc/tools/zz.sh --no-report
+/home/pascal/development/bo.facile/doc/tools/zz.sh --console --no-report
+/home/pascal/development/bo.facile/doc/tools/zz.sh --no-report --server
 /home/pascal/development/bo.facile/doc/tools/zz.sh --help
 
 Rejoindre et gérer les ateliers

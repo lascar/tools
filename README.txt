@@ -22,7 +22,7 @@ Rejoindre et gérer les ateliers
 - worktree_new.sh (doc/scripts.md#worktree_newsh) — créer explicitement une nouvelle branche et son worktree.
 - worktree_open.sh (doc/scripts.md#worktree_opensh) — ouvrir une branche existante dans son worktree.
 - worktree_open_current.sh (doc/scripts.md#worktree_open_currentsh) — ouvrir l’atelier du worktree courant.
-- worktree_switch.sh (doc/scripts.md#worktree_switchsh) — afficher un terminal existant.
+- worktree_switch.sh (doc/scripts.md#worktree_switchsh) — choisir un worktree ouvert et afficher son terminal.
 - worktree_status.sh (doc/scripts.md#worktree_statussh) — afficher l’état Git des worktrees, leurs ateliers ouverts ou fermés et le total ouvert.
 - worktree_close.sh (doc/scripts.md#worktree_closesh) — fermer un atelier ; sans argument depuis le principal, fermer tous les ateliers ouverts en conservant les worktrees.
 - worktree_remove.sh (doc/scripts.md#worktree_removesh) — supprimer explicitement un worktree fermé et son dossier, sans sauvegarde.
@@ -125,7 +125,7 @@ Le statut et la fermeture collective concernent les ateliers gérés par les out
 
 worktree_reach.sh crée ou rattache le worktree si nécessaire, ouvre un atelier fermé, ou affiche un atelier vivant. --no-update évite l’actualisation Git lors d’une ouverture. Sans tâche, la commande affiche le terminal principal existant sans actualisation ni démarrage du runtime.
 
-Les trois premiers onglets ouverts par zz.sh portent le titre bo.facile/master. Le dernier, bo.facile/rapport tâches, lance une nouvelle session Codex avec le prompt personnel doc/build_rapport_taches.txt : elle génère doc/rapport_taches.html, puis demande son ouverture dans Firefox. Ce prompt doit être lisible avant le démarrage ; il est conservé hors du dépôt tools. Le rapport occupe la sixième position si deux onglets étaient déjà ouverts, sinon il est simplement ajouté en dernier. Ceux des ateliers ouverts par worktree_reach.sh portent uniquement le nom de la tâche, sans suffixe de rôle d’onglet.
+Les trois premiers onglets ouverts par zz.sh portent le titre bo.facile/master. Le dernier, bo.facile/rapport tâches, lance une nouvelle session Codex avec le prompt personnel doc/build_rapport_taches.txt : elle génère doc/rapport_taches.html, puis demande son ouverture dans Firefox. Ce prompt doit être lisible avant le démarrage ; il est conservé hors du dépôt tools. Le rapport occupe la sixième position si deux onglets étaient déjà ouverts, sinon il est simplement ajouté en dernier. Avec zz.sh --no-report, l’onglet rapport est désactivé et son prompt n’est pas requis ; cette option se combine avec --shell, --console ou --server, dans n’importe quel ordre. Ceux des ateliers ouverts par worktree_reach.sh portent uniquement le nom de la tâche, sans suffixe de rôle d’onglet.
 
 Si un démarrage Docker échoue avec all predefined address pools have been fully subnetted, les outils nettoient automatiquement les réseaux privés inutilisés des projets d’ateliers, puis retentent le même démarrage une seule fois. Le nettoyage sélectionne les labels Compose du projet d’atelier et de son réseau privé. Docker conserve les réseaux référencés par un conteneur, même arrêté ; les réseaux du principal, les réseaux partagés, les volumes et les images sont préservés. Les autres erreurs et un second échec restent bloquants. Cette récupération couvre aussi les relances du serveur et de la console.
 
