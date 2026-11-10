@@ -15,6 +15,7 @@ Lire dans l’ordre
 Démarrer la session principale
 
 - zz.sh (doc/scripts.md#zzsh) — vérifier les ateliers fermés, actualiser master, relancer Docker et ouvrir Codex, le shell Docker, l’audit d’intégration et le rapport automatique des tâches.
+- Rapport opérationnel des tâches (doc/workflow.md#rapport-operationnel-des-taches) — repérer les annonces manquantes avec l’audit d’intégration et les échanges Incwo, puis vérifier la présence du code du correctif sur dev et en production.
 
 Rejoindre et gérer les ateliers
 

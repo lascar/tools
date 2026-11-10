@@ -384,6 +384,14 @@ Audit des commits de l’auteur durant la période, sept jours par défaut, et d
 
 Actualise les références par fetch et prune par défaut. `--no-fetch` évite cet accès et utilise les références locales. Malgré son nom, ne réalise aucune fusion, aucun push ni déploiement.
 
+Pour le [rapport opérationnel des tâches](workflow.md#rapport-operationnel-des-taches), utiliser une cible explicite et `--no-fetch`, par exemple depuis le worktree du projet :
+
+```bash
+doc/tools/merge_to_master.sh 31 pascal master --no-fetch
+```
+
+Une ligne `INTÉGRÉ <sha> <date> <message>` prouve l’ascendance du commit dans la cible. Sa date est celle du commit, pas celle de l’intégration. Le rapport compare cette date à la dernière intervention substantielle de la tâche et lit les échanges pour repérer une annonce manquante, y compris lorsqu’un message plus récent promet encore l’annonce. La présence sur dev ou en production fait l’objet d’un contrôle distinct du code caractéristique du commit sur chaque serveur ; cet audit Git ne l’effectue pas.
+
 ### merge_to_dev.sh
 
 ```text
