@@ -129,6 +129,65 @@ def preflight():
         raise ToolError('Pas de session graphique. Utilise --prepare-only pour préparer le worktree.')
 
 
+def restart_failed_codex(root):
+    """Reach peut retrouver un superviseur vivant dont Codex a deja echoue."""
+    folder = directory(root)
+    def failed(record):
+        return (record.get('status') == 'error' or
+                (record.get('status') == 'ready' and bool(record.get('exit_code'))))
+    if not failed(read_json(folder / 'codex.json', {})):
+        return False
+    with locked(folder / 'atelier.lock'):
+        record = read_json(folder / 'codex.json', {})
+        if not failed(record) or alive(record, 'child_'):
+            return False
+        state = read_json(folder / 'atelier.json', {})
+        generation = state.get('generation')
+        if (not generation or record.get('generation') != generation or
+                record.get('worktree') != str(root) or record.get('role') != 'codex' or
+                (folder / 'close').exists()):
+            raise ToolError('État de l’onglet Codex incohérent ; relance annulée.')
+        preflight()
+        sessions.codex_command(root)  # Valider la commande avant de fermer l'onglet termine.
+        profile = terminal_profile()
+        if alive(record):
+            pid = record['pid']
+            try:
+                descriptor = os.pidfd_open(pid)
+            except ProcessLookupError:
+                descriptor = None
+            if descriptor is not None:
+                try:
+                    if (not alive(record) or
+                            read_json(folder / 'codex.json', {}) != record or
+                            Path('/proc/%s/cwd' % pid).resolve() != root or shell_children(pid)):
+                        raise ToolError('L’onglet Codex a changé ou contient une commande ; aucun arrêt effectué.')
+                    # Seul le superviseur inactif est ferme, jamais une session active.
+                    signal.pidfd_send_signal(descriptor, signal.SIGTERM)
+                    poller = select.poll()
+                    poller.register(descriptor, select.POLLIN)
+                    if not poller.poll(5000):
+                        raise ToolError('L’ancien onglet Codex ne s’est pas fermé ; relance interrompue.')
+                finally:
+                    os.close(descriptor)
+        import shlex
+        task = context(root, task=True)[2]
+        command = [sys.executable, str(TOOLS / 'worktree_tools.py'), '_tab',
+                   str(root), 'codex', generation]
+        print('Relance de Codex après son échec dans %s…' % task, flush=True)
+        run(['gnome-terminal', '--window', '--profile', profile, '--title', task,
+             '--working-directory', str(root), '--command', shlex.join(command)])
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            current = read_json(folder / 'codex.json', {})
+            if current != record and current.get('generation') == generation and alive(current):
+                if failed(current):
+                    raise ToolError('Le nouvel onglet Codex a échoué ; consulte son message.')
+                return True
+            time.sleep(.1)
+        raise ToolError('Le nouvel onglet Codex ne répond pas encore ; vérifie sa fenêtre.')
+
+
 def master_context(root):
     root, branch, _ = context(root)
     if root != MAIN or branch != BASE_BRANCH:

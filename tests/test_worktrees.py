@@ -982,7 +982,7 @@ class WorktreeTests(unittest.TestCase):
         with patch.object(atelier, 'preflight'), patch.object(cli, 'update_from_master') as update, \
                 patch.object(sessions, 'prepare') as prepare, patch.object(atelier, 'open_atelier') as opened:
             self.reach('1234_réglage')
-        update.assert_called_once_with(self.root)
+        update.assert_called_once_with(self.root, collision_max_age_days=7)
         prepare.assert_called_once_with(self.root, new=False)
         opened.assert_called_once_with(self.root, 'http')
 
@@ -1005,6 +1005,62 @@ class WorktreeTests(unittest.TestCase):
                 self.reach('1234_réglage')
         opened.assert_not_called()
         update.assert_not_called()
+
+    def test_reach_restarts_failed_codex_instead_of_switching_to_finished_tab(self):
+        with patch.object(atelier, 'alive', return_value=True), \
+                patch.object(atelier, 'restart_failed_codex', return_value=True) as restart, \
+                patch.object(atelier, 'worktree_switch') as switch, \
+                patch.object(cli, 'update_from_master') as update, \
+                patch.object(sessions, 'prepare') as prepare, \
+                patch.object(atelier, 'open_atelier') as opened:
+            self.reach('1234_réglage')
+        restart.assert_called_once_with(self.root)
+        for operation in (switch, update, prepare, opened): operation.assert_not_called()
+
+    def test_reach_prepare_only_does_not_restart_failed_codex(self):
+        with patch.object(atelier, 'alive', return_value=True), \
+                patch.object(atelier, 'restart_failed_codex') as restart, \
+                patch.object(atelier, 'worktree_switch') as switch:
+            self.reach('1234_réglage', '--prepare-only')
+        restart.assert_not_called()
+        switch.assert_not_called()
+
+    def failed_codex_supervisor(self):
+        child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], cwd=self.root)
+        self.addCleanup(lambda: (child.terminate(), child.wait(timeout=3)) if child.poll() is None else None)
+        folder = atelier.directory(self.root)
+        c.atomic(folder / 'atelier.json', {'generation': 'test'})
+        record = {'pid': child.pid, 'start': atelier.identity(child.pid), 'generation': 'test',
+                  'worktree': str(self.root), 'role': 'codex', 'status': 'ready', 'exit_code': 1}
+        c.atomic(folder / 'codex.json', record)
+        return child, folder, record
+
+    def test_failed_codex_restarts_only_inactive_supervisor_without_git_or_docker(self):
+        child, folder, record = self.failed_codex_supervisor()
+        def new_terminal(args):
+            self.assertEqual(args[0], 'gnome-terminal')
+            self.assertIn('_tab', args[-1])
+            self.assertIn('codex', args[-1])
+            c.atomic(folder / 'codex.json', dict(record, pid=os.getpid(),
+                     start=atelier.identity(os.getpid()), status='running', exit_code=None))
+        with patch.object(atelier, 'preflight'), \
+                patch.object(atelier, 'terminal_profile', return_value='test-profile'), \
+                patch.object(sessions, 'codex_command', return_value=['codex']) as command, \
+                patch.object(atelier, 'run', side_effect=new_terminal) as launch, \
+                patch.object(docker, 'activate') as activate:
+            self.assertTrue(atelier.restart_failed_codex(self.root))
+        self.assertEqual(child.wait(timeout=3), -signal.SIGTERM)
+        command.assert_called_once_with(self.root)
+        launch.assert_called_once()
+        activate.assert_not_called()
+
+    def test_failed_codex_supervisor_with_child_is_not_stopped(self):
+        child, folder, record = self.failed_codex_supervisor()
+        c.atomic(folder / 'codex.json', dict(record, child_pid=child.pid, child_start=record['start']))
+        with patch.object(atelier, 'run') as launch:
+            self.assertFalse(atelier.restart_failed_codex(self.root))
+        self.assertIsNone(child.poll())
+        launch.assert_not_called()
 
     def test_reach_refuses_occupied_destination_without_creating_branch(self):
         (self.main.parent / 'project-2345_nouveau').mkdir()
@@ -1388,6 +1444,36 @@ class WorktreeTests(unittest.TestCase):
         (self.main / 'delete.txt').write_text('changed')
         self.assertEqual(len(c.collisions(self.root, ['tracked.txt', 'new.txt', 'delete.txt'])), 3)
 
+    def test_collisions_seven_days_filters_old_worktrees_and_includes_boundary(self):
+        now = time.time()
+        cutoff = now - 7 * 86400
+        old = cutoff - 1
+        changed = self.main / 'tracked.txt'
+        changed.write_text('unfinished old work')
+        shared = Path(self.temp.name) / 'shared'
+        shared.mkdir()
+        (shared / 'recent.txt').write_text('shared activity')
+        (self.main / 'shared').symlink_to(shared, target_is_directory=True)
+        # Vieillir les fichiers sans parcourir le depot Git ni les liens partages.
+        for parent, dirs, files in os.walk(self.main):
+            dirs[:] = [name for name in dirs if name != '.git']
+            for name in files + dirs:
+                os.utime(Path(parent) / name, (old, old), follow_symlinks=False)
+            os.utime(parent, (old, old))
+        admin = Path(self.git(self.main, 'rev-parse', '--absolute-git-dir'))
+        for relative in ('HEAD', 'logs/HEAD'):
+            os.utime(admin / relative, (old, old))
+        with patch.object(c.time, 'time', return_value=now):
+            self.assertFalse(c.collisions(self.root, ['tracked.txt'], max_age_days=7))
+            self.assertEqual(len(c.collisions(self.root, ['tracked.txt'])), 1)
+            # Le rafraichissement de l'index par status ne vaut pas une edition.
+            self.assertFalse(c.collisions(self.root, ['tracked.txt'], max_age_days=7))
+            os.utime(changed, (cutoff, cutoff))
+            self.assertEqual(len(c.collisions(self.root, ['tracked.txt'], max_age_days=7)), 1)
+            os.utime(changed, (old, old))
+            os.utime(admin / 'logs/HEAD', (cutoff, cutoff))
+            self.assertEqual(len(c.collisions(self.root, ['tracked.txt'], max_age_days=7)), 1)
+
     def test_collisions_batch_paths_and_preserve_unusual_names(self):
         names = ['file-%s.txt' % i for i in range(260)] + ['é space\nline.txt', 'literal*.txt']
         for name in (names[0], names[200], names[-2], 'literal-other.txt'):
@@ -1607,18 +1693,93 @@ class WorktreeTests(unittest.TestCase):
         _, branch, path = journal.journal_location(str(root))
         self.assertEqual(path.name, 't_5678_ticket.jsont')
 
-    def test_codex_resumes_with_worktree_and_central_write_access(self):
+    def codex_transcript(self, internal_id=None, cwd=None):
         sessions.prepare(self.root)
-        transcript = self.main / 'transcript.jsonl'
-        transcript.write_text(json.dumps({'type': 'session_meta', 'payload': {'id': 'abc', 'cwd': str(self.root)}})+'\n')
+        home = Path(self.temp.name) / 'codex-home'
+        session_id = '01a1acb2-4c78-70a3-aaff-708a01dbc3df'
+        transcript = home / 'sessions/2026/11/05' / ('rollout-2026-11-05T18-12-08-' + session_id + '.jsonl')
+        transcript.parent.mkdir(parents=True)
+        transcript.write_text(json.dumps({'type': 'session_meta', 'payload': {
+            'id': internal_id or session_id, 'cwd': str(cwd or self.root)}})+'\n')
         (self.main / 'sessions_codex/1234_réglage.jsonl').symlink_to(transcript)
-        with patch.object(sessions.shutil, 'which', return_value='/bin/codex'):
+        return home, session_id, transcript
+
+    def test_codex_resumes_with_worktree_and_central_write_access(self):
+        home, session_id, _ = self.codex_transcript()
+        with patch.object(sessions.shutil, 'which', return_value='/bin/codex'), \
+                patch.dict(os.environ, CODEX_HOME=str(home)):
             args = sessions.codex_command(self.root)
-        self.assertEqual(args[1:3], ['resume', 'abc'])
+        self.assertEqual(args[1:3], ['resume', session_id])
         self.assertEqual(args[args.index('-C')+1], str(self.root))
         self.assertEqual(args[args.index('--add-dir')+1], str(self.main / 'sessions_codex'))
         self.assertIn(str(self.main / 'doc'), [args[i+1] for i, arg in enumerate(args) if arg == '--add-dir'])
         self.assertNotIn('puis attends mes instructions', args[-1])
+
+    def test_codex_metadata_id_mismatch_starts_new_session_and_preserves_history(self):
+        home, session_id, transcript = self.codex_transcript(internal_id='01a1c010-84b5-7261-91e5-18a018eb9319')
+        before = transcript.read_bytes()
+        with patch.object(sessions, 'codex_binary', return_value='/bin/codex'), \
+                patch.dict(os.environ, CODEX_HOME=str(home)):
+            args = sessions.codex_command(self.root)
+        self.assertNotIn('resume', args)
+        self.assertNotIn(session_id, args)
+        self.assertIn('puis attends mes instructions', args[-1])
+        self.assertEqual(transcript.read_bytes(), before)
+        self.assertEqual((self.main / 'sessions_codex/1234_réglage.jsonl').resolve(), transcript)
+
+    def test_codex_missing_transcript_starts_new_session_preserving_alias(self):
+        home, _, transcript = self.codex_transcript()
+        transcript.unlink()
+        with patch.object(sessions, 'codex_binary', return_value='/bin/codex'), \
+                patch.dict(os.environ, CODEX_HOME=str(home)):
+            args = sessions.codex_command(self.root)
+        self.assertNotIn('resume', args)
+        self.assertIn('puis attends mes instructions', args[-1])
+        self.assertTrue((self.main / 'sessions_codex/1234_réglage.jsonl').is_symlink())
+
+    def test_codex_tab_launches_new_session_for_inconsistent_transcript(self):
+        home, _, transcript = self.codex_transcript(internal_id='01a1c010-84b5-7261-91e5-18a018eb9319')
+        before = transcript.read_bytes()
+        folder = atelier.directory(self.root)
+        c.atomic(folder / 'atelier.json', {'generation': 'test'})
+        (folder / 'close').touch()
+        child = Mock(pid=os.getpid())
+        child.wait.return_value = 0
+        resolved = (self.root, 'feature/1234_réglage', '1234_réglage')
+        with patch.object(sessions, 'codex_binary', return_value='/bin/codex'), \
+                patch.dict(os.environ, CODEX_HOME=str(home)), \
+                patch.object(atelier, 'context', return_value=resolved), \
+                patch.object(sessions, 'context', return_value=resolved), \
+                patch.object(atelier.subprocess, 'Popen', return_value=child) as spawn:
+            atelier.tab(self.root, 'codex', 'test')
+        launched = spawn.call_args.args[0]
+        self.assertNotIn('resume', launched)
+        self.assertIn(str(self.main / 'sessions_codex/1234_réglage.jsont'), launched[-1])
+        self.assertIn('puis attends mes instructions', launched[-1])
+        self.assertEqual(transcript.read_bytes(), before)
+
+    def test_codex_invalid_transcript_starts_new_session_without_overwriting(self):
+        home, _, transcript = self.codex_transcript()
+        transcript.write_text('invalid json\n')
+        with patch.object(sessions, 'codex_binary', return_value='/bin/codex'), \
+                patch.dict(os.environ, CODEX_HOME=str(home)):
+            args = sessions.codex_command(self.root)
+        self.assertNotIn('resume', args)
+        self.assertEqual(transcript.read_text(), 'invalid json\n')
+
+    def test_codex_different_home_starts_new_session(self):
+        self.codex_transcript()
+        with patch.object(sessions, 'codex_binary', return_value='/bin/codex'), \
+                patch.dict(os.environ, CODEX_HOME=str(Path(self.temp.name) / 'other-home')):
+            args = sessions.codex_command(self.root)
+        self.assertNotIn('resume', args)
+
+    def test_codex_other_task_transcript_starts_new_session(self):
+        home, _, _ = self.codex_transcript(cwd=self.main.parent / 'other-task')
+        with patch.object(sessions, 'codex_binary', return_value='/bin/codex'), \
+                patch.dict(os.environ, CODEX_HOME=str(home)):
+            args = sessions.codex_command(self.root)
+        self.assertNotIn('resume', args)
 
     def test_new_codex_session_reads_task_followup_and_waits(self):
         sessions.prepare(self.root, new=True)

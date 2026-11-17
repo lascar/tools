@@ -245,6 +245,43 @@ def codex_environment(binary):
     return env
 
 
+def codex_resume_id(alias, root, branch):
+    """Ne proposer resume que pour un transcript accessible dans ce CODEX_HOME."""
+    def unavailable(reason):
+        print('Nouvelle session Codex : %s. Le journal central est conservé.' % reason,
+              flush=True)
+        return None
+
+    if not alias.is_file():
+        return unavailable('transcript absent ou lien de reprise cassé')
+    try:
+        meta = metadata(alias)
+    except (OSError, ValueError, KeyError, ToolError) as exc:
+        return unavailable('transcript illisible (%s)' % exc)
+    if not isinstance(meta, dict) or not meta.get('cwd'):
+        return unavailable('métadonnées de reprise incomplètes')
+    old_root = Path(meta['cwd']).resolve()
+    if old_root != root and not (old_root == MAIN and (meta.get('git') or {}).get('branch') == branch):
+        return unavailable('transcript associé à un autre dossier ou une autre tâche')
+    home = Path(os.environ.get('CODEX_HOME') or Path.home() / '.codex').expanduser().resolve()
+    transcript = alias.resolve()
+    if not any(transcript.is_relative_to(home / directory)
+               for directory in ('sessions', 'archived_sessions')):
+        return unavailable('transcript hors des sessions du CODEX_HOME actif')
+    # Codex exige aussi que les metadonnees appartiennent au thread demande.
+    # Le fichier et l'index presents ne suffisent donc pas a garantir la reprise.
+    match = re.fullmatch(r'rollout-.+-([0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})\.jsonl',
+                         transcript.name)
+    if not match:
+        return unavailable('nom de transcript non reconnu pour la reprise')
+    session_id = match.group(1)
+    internal_ids = [meta[key] for key in ('id', 'session_id') if meta.get(key)]
+    if not internal_ids or any(identifier != session_id for identifier in internal_ids):
+        return unavailable('identifiants du fichier et des métadonnées incompatibles ; '
+                           'Codex ne peut pas reprendre ce transcript')
+    return session_id
+
+
 def codex_command(root, extra=(), new=False):
     root, branch, task = context(root, task=True)
     binary = codex_binary()
@@ -253,16 +290,11 @@ def codex_command(root, extra=(), new=False):
     alias = MAIN / setting('JOURNAL_DIR', 'sessions_codex') / (task + '.jsonl')
     args = [binary]
     resuming = False
-    if not new and (alias.exists() or alias.is_symlink()):
-        if not alias.exists(): raise ToolError('Lien de reprise cassé ; utilise --new-session ou répare le lien.')
-        meta = metadata(alias)
-        old_root = Path(meta.get('cwd', '')).resolve()
-        if old_root != root and not (old_root == MAIN and meta.get('git', {}).get('branch') == branch):
-            raise ToolError('Transcript d’un autre dossier/tâche ; utilise --new-session après vérification.')
-        session_id = meta.get('session_id') or meta.get('id')
-        if not session_id: raise ToolError('Identifiant de session absent.')
-        args += ['resume', session_id]
-        resuming = True
+    if not new:
+        session_id = codex_resume_id(alias, root, branch)
+        if session_id:
+            args += ['resume', session_id]
+            resuming = True
     args += ['-C', str(root), '--add-dir', str(MAIN / setting('JOURNAL_DIR', 'sessions_codex')),
              '--add-dir', str(MAIN / setting('DOCUMENTS_DIR', 'doc')), *extra]
     args += [setting('AGENT_INSTRUCTIONS', 'Lis AGENTS.md.') + ' Reprends le journal central ' +

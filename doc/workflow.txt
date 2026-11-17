@@ -93,13 +93,13 @@ Son comportement dépend de l’état existant :
 - Branche absente : créer la branche et le worktree depuis la base locale.
 - Branche connue sans worktree : rattacher un nouveau worktree à cette branche.
 - Worktree fermé : préparer et ouvrir son atelier, avec actualisation habituelle.
-- Atelier déjà vivant : afficher son onglet d’agent, sans actualisation Git ni activation Docker.
+- Atelier déjà vivant : afficher son onglet d’agent, sans actualisation Git ni activation Docker. Si Codex s’est terminé en erreur, fermer uniquement son superviseur inactif et ouvrir une nouvelle fenêtre Codex ; les autres onglets restent ouverts et une session encore active est conservée.
 
 Le terminal de lancement garde son dossier. La fenêtre de tâche utilise son worktree pour l’agent, les services, le Bash et les notes selon les rôles configurés.
 
 Pour rouvrir un atelier existant fermé, sans --no-update et lorsque le choix de conservation du travail autorise la fusion, le script exécute un fetch de origin/master, avance le master local en avance rapide si nécessaire, puis fusionne la version récupérée dans la branche de tâche si elle ne la contient pas déjà. Il ne lance pas directement git pull. Un master local divergent provoque un arrêt.
 
-Avec --no-update, cette ouverture évite le fetch, la mise à jour du master local et la fusion dans la tâche. Un atelier déjà vivant est seulement affiché, même sans cette option. Une branche nouvellement créée part de la base locale sans cette actualisation.
+Avec --no-update, cette ouverture évite le fetch, la mise à jour du master local et la fusion dans la tâche. Un atelier déjà vivant est affiché ou son onglet Codex en échec est relancé, même sans cette option. Une branche nouvellement créée part de la base locale sans cette actualisation.
 
 Si GitHub refuse l’authentification SSH pendant le fetch (Permission denied (publickey)), cette étape échoue avant la mise à jour du master local et la fusion dans la tâche. Pour rejoindre l’atelier sans attendre le rétablissement de l’accès, relancer avec --no-update ; les nouveautés distantes ne seront pas intégrées.
 
@@ -111,9 +111,9 @@ Pour un ticket :
 
 worktree_reach.sh t_2345_mon_ticket
 
-Les commandes explicites restent disponibles : worktree_new.sh exige une nouvelle branche ; worktree_open.sh exige une branche déjà connue. Une préparation sans fenêtre ni Docker utilise --prepare-only.
+Les commandes explicites restent disponibles : worktree_new.sh exige une nouvelle branche ; worktree_open.sh exige une branche déjà connue. Une préparation sans fenêtre ni Docker utilise --prepare-only ; elle ne relance aucun onglet en échec.
 
-Dans un nouvel atelier, Codex reçoit le chemin exact doc/<tâche>_suivi.txt, lit ce suivi puis attend les instructions de Pascal avant d’en exécuter les étapes. Une session existante est reprise normalement. Après activation réussie du serveur, l’URL localhost du point 5 du suivi reflète le port réellement attribué et le protocole HTTP/HTTPS ; elle est réajustée si l’adresse change lors d’une activation ultérieure. Avec --prepare-only, cette mise à jour attend le démarrage du serveur.
+Dans un nouvel atelier, Codex reçoit le chemin exact doc/<tâche>_suivi.txt, lit ce suivi puis attend les instructions de Pascal avant d’en exécuter les étapes. Une session existante et cohérente est reprise normalement. Si le transcript est absent, illisible, lié à une autre tâche, hors du CODEX_HOME actif ou incohérent entre ses identifiants, Codex démarre une nouvelle session avec un message explicatif. Cette session lit le journal central et le suivi, puis attend les instructions. L’ancien transcript et le journal sont conservés ; utilise toujours worktree_reach.sh, sans reprise manuelle par codex resume. Après activation réussie du serveur, l’URL localhost du point 5 du suivi reflète le port réellement attribué et le protocole HTTP/HTTPS ; elle est réajustée si l’adresse change lors d’une activation ultérieure. Avec --prepare-only, cette mise à jour attend le démarrage du serveur.
 
 4. Traiter les modifications lors d’une ouverture
 
@@ -125,6 +125,8 @@ Si une tâche existante contient du travail local, l’ouverture avec actualisat
 - Annuler : choix par défaut lorsque la réponse est vide.
 
 --no-update évite cette actualisation et ce menu. Un conflit Git non résolu ou une opération Git en cours peut interrompre le traitement. Les collisions entre worktrees distincts sont informatives pour le choix 1 ; elles restent bloquantes pour les choix de sauvegarde/nettoyage ou d’élimination des modifications.
+
+Avec worktree_reach.sh, seuls les autres worktrees modifiés au cours des sept derniers jours, seuil inclus, participent aux recherches de collisions de l’ouverture. L’activité comprend les fichiers et répertoires, HEAD et son journal ; les liens partagés ne sont pas suivis et la date de l’index Git ne compte pas. Ce seuil ne modifie pas les contrôles des autres commandes.
 
 En cas de conflit de réapplication du stash, le script peut proposer git mergetool dans la tâche. Si la résolution n’est pas terminée, l’ouverture reste interrompue et le travail est conservé. Ne relance pas une restauration ou une fusion à l’aveugle ; examine l’état Git affiché.
 

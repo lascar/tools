@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+import time
 
 from _wt_config import *
 MAIN = configured_path('MAIN_ROOT')
@@ -127,14 +128,35 @@ def personal(name):
     return first.startswith(tuple(setting_json('PERSONAL_PREFIXES', ['.env']))) or first in setting_json('PERSONAL_NAMES', [])
 
 
-def collisions(root, paths):
+def worktree_modified_since(root, cutoff):
+    # Ne pas suivre doc/ et les autres liens vers des dossiers partages.
+    def recent(path):
+        if path.lstat().st_mtime >= cutoff:
+            return True
+        if path.is_symlink() or not path.is_dir():
+            return False
+        return any(recent(child) for child in path.iterdir() if child.name != '.git')
+
+    if recent(root):
+        return True
+    admin = Path(value(root, 'rev-parse', '--path-format=absolute', '--git-dir'))
+    # HEAD et son reflog couvrent les commits et changements de branche.
+    # Ne pas utiliser index : git status peut en rafraichir la date sans edition.
+    return any(path.exists() and path.stat().st_mtime >= cutoff
+               for path in (admin / 'HEAD', admin / 'logs/HEAD'))
+
+
+def collisions(root, paths, max_age_days=None):
     paths = list(dict.fromkeys(paths))
     if not paths:
         return []
     conflicts = []
+    cutoff = None if max_age_days is None else time.time() - max_age_days * 86400
     for row in worktrees():
         other = Path(row['worktree'])
         if other == root:
+            continue
+        if cutoff is not None and not worktree_modified_since(other, cutoff):
             continue
         changed = set()
         # Regrouper les chemins pour eviter des milliers de processus Git ;

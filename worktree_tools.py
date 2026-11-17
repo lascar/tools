@@ -147,23 +147,23 @@ def clear_local_changes(root, snapshot):
         (root / safe_relative(name)).unlink()
 
 
-def warn_merge_collisions(root, paths):
+def warn_merge_collisions(root, paths, collision_max_age_days=None):
     # Les worktrees ont leurs propres fichiers : signaler le travail parallele
     # sans bloquer une fusion locale. Les conflits Git restent traites ensuite.
-    found = collisions(root, paths)
+    found = collisions(root, paths, max_age_days=collision_max_age_days)
     if found:
         print('AVERTISSEMENT : fichiers modifiés dans d’autres worktrees ; '
               'poursuite dans le worktree traité uniquement :\n' + '\n'.join(found), flush=True)
 
 
-def resolve_open_conflicts(root):
+def resolve_open_conflicts(root, collision_max_age_days=None):
     root, branch, _ = context(root, task=True)
     paths = sorted(set(patches.names(root, 'diff', '--name-only', '--diff-filter=U', '-z')))
     if not paths:
         raise ToolError('Aucun conflit de fichier à traiter avec git mergetool ; vérifie git status.')
     if not os.isatty(0):
         raise ToolError('Conflits présents ; relance worktree_open.sh dans un terminal pour lancer git mergetool.')
-    warn_merge_collisions(root, paths)
+    warn_merge_collisions(root, paths, collision_max_age_days)
     head = value(root, 'rev-parse', 'HEAD')
     print('Résolution des conflits avec git mergetool dans %s...' % branch, flush=True)
     result = run(['git', '-C', root, '--literal-pathspecs', 'mergetool', '--no-prompt', '--', *paths],
@@ -176,11 +176,11 @@ def resolve_open_conflicts(root):
     print('Conflits résolus ; reprise de l’ouverture.', flush=True)
 
 
-def restore_open_stash(root, stash):
+def restore_open_stash(root, stash, collision_max_age_days=None):
     result = run(['git', '-C', root, 'stash', 'apply', '--index', stash], check=False)
     if result.returncode:
         try:
-            resolve_open_conflicts(root)
+            resolve_open_conflicts(root, collision_max_age_days)
         except ToolError as exc:
             raise ToolError('Réapplication interrompue dans %s : %s Sauvegarde conservée : %s.' % (root, exc, stash))
         # Apres une resolution manuelle, conserver la sauvegarde d'origine par precaution.
@@ -193,7 +193,7 @@ def restore_open_stash(root, stash):
         print('Changements réappliqués ; sauvegarde temporaire conservée : %s.' % stash)
 
 
-def refresh_master(root):
+def refresh_master(root, collision_max_age_days=None):
     # Le verrou est commun aux taches : elles partagent le worktree master.
     with locked(STATE / 'master-update.lock'):
         def ready():
@@ -218,7 +218,7 @@ def refresh_master(root):
             raise ToolError(f'Le {BASE_BRANCH} local a divergé de {REMOTE}/{BASE_BRANCH} ; aucune fusion automatique dans {BASE_BRANCH}.')
         paths = patches.names(MAIN, 'diff', '--name-only', '--no-renames', '-z', head, target)
         # La tache courante participe a cette operation ; verifier les autres taches.
-        warn_merge_collisions(root, paths)
+        warn_merge_collisions(root, paths, collision_max_age_days)
         ready()
         if value(MAIN, 'rev-parse', 'HEAD') != head:
             raise ToolError(f'Le {BASE_BRANCH} local a changé pendant la vérification ; relance l’ouverture.')
@@ -230,7 +230,7 @@ def refresh_master(root):
         return target
 
 
-def update_from_master(root):
+def update_from_master(root, collision_max_age_days=None):
     root, branch, _ = context(root, task=True)
     with locked(STATE / ('update-' + key(root) + '.lock')):
         def ready(clean=True):
@@ -245,7 +245,7 @@ def update_from_master(root):
         ready(clean=False)
         if patches.names(root, 'diff', '--name-only', '--diff-filter=U', '-z'):
             # Un stash deja partiellement applique ne doit jamais etre reapplique.
-            resolve_open_conflicts(root)
+            resolve_open_conflicts(root, collision_max_age_days)
             print('Les stash existants sont conservés ; aucune seconde réapplication.')
             return
         snapshot = None
@@ -256,7 +256,8 @@ def update_from_master(root):
             if changes_snapshot(root) != snapshot:
                 raise ToolError('Le travail a changé pendant le choix ; relance l’ouverture.')
             if action in ('patch', 'discard'):
-                found = collisions(root, [f['path'] for f in snapshot[3]])
+                found = collisions(root, [f['path'] for f in snapshot[3]],
+                                   max_age_days=collision_max_age_days)
                 if found:
                     raise ToolError('Fichiers modifiés dans un autre worktree ; traitement refusé :\n' + '\n'.join(found))
                 if action == 'patch':
@@ -269,7 +270,7 @@ def update_from_master(root):
                 print(f'Branche nettoyée ; ouverture sans fusion de {REMOTE}/{BASE_BRANCH}.')
                 return action
         print(f'Actualisation de {REMOTE}/{BASE_BRANCH} et du {BASE_BRANCH} local, puis fusion dans %s...' % branch, flush=True)
-        target = refresh_master(root)
+        target = refresh_master(root, collision_max_age_days)
         ready(clean=snapshot is None)
         if snapshot is not None and changes_snapshot(root) != snapshot:
             raise ToolError('Le travail a changé pendant le fetch ; aucune mise de côté effectuée.')
@@ -287,7 +288,7 @@ def update_from_master(root):
         paths = sorted(set(p for p in paths if p))
         print('Vérification des collisions dans les autres worktrees (%s fichiers)...' %
               len([p for p in paths if p]), flush=True)
-        warn_merge_collisions(root, paths)
+        warn_merge_collisions(root, paths, collision_max_age_days)
         ready(clean=snapshot is None)
         stash = None
         if snapshot is not None:
@@ -308,7 +309,7 @@ def update_from_master(root):
                      'réapplique-les avec git stash apply --index %s.' % (stash, stash)) if stash else ''
             raise ToolError('Fusion interrompue dans %s. Vérifie git status et résous ou abandonne la fusion avant de relancer ; aucun atelier lancé.%s' % (root, saved))
         if stash:
-            restore_open_stash(root, stash)
+            restore_open_stash(root, stash, collision_max_age_days)
 
 
 def open_command(args):
@@ -328,7 +329,8 @@ def open_command(args):
                     if atelier.alive(read_json(folder / (role + '.json'), {}))]
             if live:
                 if not args.prepare_only:
-                    atelier.worktree_switch(root)
+                    if not atelier.restart_failed_codex(root):
+                        atelier.worktree_switch(root)
                 if args.result_file: Path(args.result_file).write_text(str(root) + '\n')
                 return
     if not args.prepare_only: atelier.preflight()
@@ -340,7 +342,11 @@ def open_command(args):
     print('Worktree : %s\nBranche : %s' % (root, value(root, 'branch', '--show-current')))
     action = None
     if not new and not args.no_update:
-        action = update_from_master(root)
+        if reach:
+            print('Collisions : worktrees modifiés depuis 7 jours au maximum.', flush=True)
+            action = update_from_master(root, collision_max_age_days=7)
+        else:
+            action = update_from_master(root)
     sessions.prepare(root, new=new)
     if not args.prepare_only:
         if action == 'patch':

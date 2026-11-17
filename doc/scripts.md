@@ -54,19 +54,21 @@ Les deux sessions Codex reçoivent l’accès aux dossiers centraux `doc` et `se
 worktree_reach.sh [tâche] [--no-update] [--prepare-only] [--mode mode]
 ```
 
-Commande habituelle pour rejoindre une tâche. Crée la branche si elle manque, rattache un worktree si nécessaire, ouvre un atelier fermé ou affiche un atelier vivant. Une création part de la base locale ; une ouverture existante suit l’actualisation habituelle, sauf option ou choix contraire. Un atelier vivant est seulement affiché, sans actualisation Git ni activation Docker.
+Commande habituelle pour rejoindre une tâche. Crée la branche si elle manque, rattache un worktree si nécessaire, ouvre un atelier fermé ou affiche un atelier vivant. Une création part de la base locale ; une ouverture existante suit l’actualisation habituelle, sauf option ou choix contraire. Un atelier vivant est affiché sans actualisation Git ni activation Docker. Si son onglet Codex est terminé en erreur, la commande ferme seulement le superviseur inactif et ouvre une nouvelle fenêtre Codex pour cet atelier ; les autres onglets restent ouverts. Un processus Codex encore vivant ne subit aucune relance. `--prepare-only` ne relance aucun onglet.
 
 Pour rouvrir un atelier existant fermé, sans --no-update et lorsque le choix de conservation du travail autorise la fusion, le script exécute un fetch de origin/master, avance le master local en avance rapide si nécessaire, puis fusionne la version récupérée dans la branche de tâche si elle ne la contient pas déjà. Il ne lance pas directement git pull. Un master local divergent provoque un arrêt.
 
-Avec --no-update, cette ouverture évite le fetch, la mise à jour du master local et la fusion dans la tâche. Un atelier déjà vivant est seulement affiché, même sans cette option. Une branche nouvellement créée part de la base locale sans cette actualisation.
+Avec --no-update, cette ouverture évite le fetch, la mise à jour du master local et la fusion dans la tâche. Un atelier déjà vivant est affiché ou son onglet Codex en échec est relancé, même sans cette option. Une branche nouvellement créée part de la base locale sans cette actualisation.
+
+Les vérifications de collisions effectuées par cette commande ne retiennent que les autres worktrees modifiés depuis sept jours au maximum, limite incluse. Les dates des fichiers et répertoires, HEAD et son reflog déterminent cette activité. Les liens partagés ne sont pas suivis et la date de l’index Git est exclue. Ce filtre couvre la mise à jour de la base, la fusion, les choix de nettoyage et mergetool ; les contrôles des autres commandes gardent leur portée habituelle.
 
 Si GitHub refuse l’authentification SSH pendant le fetch (Permission denied (publickey)), cette étape échoue avant la mise à jour du master local et la fusion dans la tâche. Pour rejoindre l’atelier sans attendre le rétablissement de l’accès, relancer avec --no-update ; les nouveautés distantes ne seront pas intégrées.
 
 Après activation réussie du serveur, l’URL `http://localhost:3000` du point 5 du fichier `<tâche>_suivi.txt` est remplacée par l’adresse réelle de l’atelier, avec son port et son protocole HTTP/HTTPS. Cette adresse est réajustée lors d’une activation ultérieure si elle change ; les autres lignes du suivi sont conservées. Avec `--prepare-only`, aucun serveur n’est activé et le modèle conserve son adresse jusqu’à l’activation.
 
-Au premier lancement de Codex dans le nouvel atelier, le message initial désigne explicitement `doc/<tâche>_suivi.txt` (ou le dossier documentaire configuré) et demande de le lire, puis d’attendre les instructions de Pascal sans exécuter ses étapes. Un suivi absent doit être signalé. Cette consigne s’applique aussi aux nouvelles sessions forcées ; une reprise de session existante conserve son comportement habituel.
+Au premier lancement de Codex dans le nouvel atelier, le message initial désigne explicitement `doc/<tâche>_suivi.txt` (ou le dossier documentaire configuré) et demande de le lire, puis d’attendre les instructions de Pascal sans exécuter ses étapes. Un suivi absent doit être signalé. Cette consigne s’applique aussi aux nouvelles sessions forcées et au démarrage automatique sur une nouvelle session si le transcript est absent ou inutilisable. La reprise vérifie le dossier et la tâche, le `CODEX_HOME` actif, le nom du fichier et la cohérence de ses identifiants avec les métadonnées. Un échec de ces contrôles est expliqué puis déclenche une nouvelle session ; le transcript et le journal central restent conservés. Un transcript valide est repris normalement.
 
-Sans tâche, affiche le terminal principal existant. Le dossier du terminal appelant est conservé. Une fenêtre ou un onglet manquant provoque une erreur ; l’affichage d’un atelier partiellement ouvert ne crée pas un deuxième atelier.
+Sans tâche, affiche le terminal principal existant. Le dossier du terminal appelant est conservé. Une fenêtre ou un onglet manquant provoque une erreur ; l’affichage d’un atelier partiellement ouvert ne crée pas un deuxième atelier complet. La récupération de l’onglet Codex terminé en erreur constitue le cas de relance décrit ci-dessus.
 
 ```bash
 worktree_reach.sh 1234_ma_tache
@@ -408,7 +410,7 @@ relance_codex.sh [--new-session] [-- arguments de l’agent]
 
 Prépare le contexte personnel du worktree courant et reprend la session d’agent associée quand un lien central valide existe. `--new-session` démarre une nouvelle session. Les journaux restent dans le dossier central configuré ; les transcriptions natives ne sont pas réécrites.
 
-Le dossier de travail est fixé au worktree : les options d’agent qui changeraient ce dossier sont refusées. Une reprise ambiguë ou un lien cassé demande une vérification explicite.
+Le dossier de travail est fixé au worktree : les options d’agent qui changeraient ce dossier sont refusées. Un lien cassé, un transcript absent ou illisible, une autre tâche, un autre `CODEX_HOME` ou des identifiants incohérents déclenchent une nouvelle session, avec un message explicatif. Celle-ci lit le journal central et le suivi, puis attend les instructions ; les anciens fichiers restent conservés.
 
 ### vim_session.sh
 
