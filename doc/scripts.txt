@@ -217,6 +217,21 @@ Cherche les modifications des mêmes chemins dans les autres worktrees, en tenan
 
 Services et tests
 
+sync_incwo_db.sh
+
+sync_incwo_db.sh
+sync_incwo_db.sh --apply
+
+Sans argument, compare la structure de facile_building avec les métadonnées Incwo sans modifier la base. Après toute exécution réussie, crée les dumps complets et de structure dans doc/, même lorsqu'aucun changement n'est nécessaire. Les noms existants sont conservés ; les nouveaux dumps reçoivent alors un suffixe horaire.
+
+Les rapports du jour sont doc/rapport_sync_db_AAAA-MM-JJ.sql et doc/rapport_sync_db_AAAA-MM-JJ.md. Le résumé indique les changements, les écarts laissés manuels, les vérifications encore à faire et les chemins des sauvegardes. Les preuves et une copie de chaque rapport sont archivées par exécution.
+
+--apply exige une collecte fraîche, une sauvegarde et un essai sur un MySQL isolé avant toute application. Le script vérifie les valeurs préexistantes et les définitions SQL. Les conversions numériques, temporelles ou d'identifiants et les tables sans définition fiable restent manuelles. Un compteur de changements automatiques à zéro ne prouve pas une structure identique à la production.
+
+Prérequis d'application : Python 3.11+, Docker, MySQL 8.0 et tables InnoDB. Une application suspend temporairement les clients applicatifs du profil et active la lecture seule du serveur local ; l'état et les services sont restaurés après traitement.
+
+Voir le guide complet de synchronisation (sync_incwo_db.md) pour les options, les contrôles, les sauvegardes, la reprise après erreur et les tests. Cette commande ne lance aucune opération Git.
+
 worktree_lance_master.sh
 
 worktree_lance_master.sh [--mode mode]

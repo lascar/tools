@@ -2,7 +2,7 @@
 
 [Version HTML](README.html) · [Version TXT](README.txt) · [Configuration du .env](env/README.md)
 
-Inventaire actualisé le 27 octobre 2026 : **30 commandes et 2 fichiers de support Bash** au format `.sh`, ainsi que la commande `worktree_prune` sans extension (alias de `worktree_prune.sh`). Les versions Markdown servent de source ; chaque page existe aussi en HTML et TXT. Les liens du Markdown permettent de naviguer dans un lecteur Markdown ou sur une forge Git. Pour lire la documentation dans un navigateur local, ouvre la [version HTML](README.html).
+Inventaire actualisé le 19 novembre 2026 : **31 commandes et 2 fichiers de support Bash** au format `.sh`, ainsi que la commande `worktree_prune` sans extension (alias de `worktree_prune.sh`). Les versions Markdown servent de source ; chaque page existe aussi en HTML et TXT. Les liens du Markdown permettent de naviguer dans un lecteur Markdown ou sur une forge Git. Pour lire la documentation dans un navigateur local, ouvre la [version HTML](README.html).
 
 ## Lire dans l’ordre
 
@@ -39,6 +39,7 @@ Inventaire actualisé le 27 octobre 2026 : **30 commandes et 2 fichiers de suppo
 
 ## Exécuter et relancer les services
 
+- [sync_incwo_db.sh](doc/sync_incwo_db.md) — comparer la structure MySQL locale aux métadonnées Incwo, produire les rapports SQL/Markdown et les deux dumps après succès ; `--apply` teste sur une copie isolée puis applique les changements conservateurs.
 - [worktree_lance_master.sh](doc/scripts.md#worktree_lance_mastersh) — ouvrir les onglets des services du dépôt principal.
 - [worktree_docker.sh](doc/scripts.md#worktree_dockersh) — gérer les services Docker d’un worktree.
 - [relance_serveur.sh](doc/scripts.md#relance_serveursh) — remettre en service et attacher le serveur ciblé.

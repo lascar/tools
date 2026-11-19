@@ -165,6 +165,15 @@ is_any_patch.sh done
 <p>Cherche les modifications des mêmes chemins dans les autres worktrees, en tenant compte de l’index, des changements non indexés et des fichiers non suivis. Sans chemin, examine les fichiers actuellement changés.</p>
 <p><code>--against</code> ajoute une simulation Git de fusion avec la référence indiquée, sans appliquer le résultat aux fichiers ni changer de branche. Peut créer des objets internes de simulation dans Git. Un code de sortie non nul peut signaler une collision ou un conflit simulé. L’absence de collision locale ne garantit pas une future fusion sans conflit.</p>
 <h2 id="services-et-tests">Services et tests</h2>
+<h3 id="sync_incwo_dbsh">sync_incwo_db.sh</h3>
+<pre><code>sync_incwo_db.sh
+sync_incwo_db.sh --apply
+</code></pre>
+<p>Sans argument, compare la structure de <code>facile_building</code> avec les métadonnées Incwo sans modifier la base. Après toute exécution réussie, crée les dumps complets et de structure dans <code>doc/</code>, même lorsqu&#x27;aucun changement n&#x27;est nécessaire. Les noms existants sont conservés ; les nouveaux dumps reçoivent alors un suffixe horaire.</p>
+<p>Les rapports du jour sont <code>doc/rapport_sync_db_AAAA-MM-JJ.sql</code> et <code>doc/rapport_sync_db_AAAA-MM-JJ.md</code>. Le résumé indique les changements, les écarts laissés manuels, les vérifications encore à faire et les chemins des sauvegardes. Les preuves et une copie de chaque rapport sont archivées par exécution.</p>
+<p><code>--apply</code> exige une collecte fraîche, une sauvegarde et un essai sur un MySQL isolé avant toute application. Le script vérifie les valeurs préexistantes et les définitions SQL. Les conversions numériques, temporelles ou d&#x27;identifiants et les tables sans définition fiable restent manuelles. Un compteur de changements automatiques à zéro ne prouve pas une structure identique à la production.</p>
+<p>Prérequis d&#x27;application : Python 3.11+, Docker, MySQL 8.0 et tables InnoDB. Une application suspend temporairement les clients applicatifs du profil et active la lecture seule du serveur local ; l&#x27;état et les services sont restaurés après traitement.</p>
+<p>Voir <a href="sync_incwo_db.html">le guide complet de synchronisation</a> pour les options, les contrôles, les sauvegardes, la reprise après erreur et les tests. Cette commande ne lance aucune opération Git.</p>
 <h3 id="worktree_lance_mastersh">worktree_lance_master.sh</h3>
 <pre><code>worktree_lance_master.sh [--mode mode]
 </code></pre>

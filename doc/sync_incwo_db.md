@@ -1,0 +1,103 @@
+# Synchroniser la structure MySQL locale avec Incwo
+
+[Index des outils](../README.md)
+
+`sync_incwo_db.sh` compare la base locale aux métadonnées publiées à cette adresse :
+
+https://www.incwo.com/webservice/incwo_get_metadata
+
+Chaque table est ensuite lue avec `?oz=nom_de_la_table`. La collecte utilise au maximum quatre requêtes simultanées, avec un timeout de 30 secondes par requête. Une erreur HTTP, un JSON invalide ou une réponse incohérente arrête le traitement : une erreur de collecte n'est jamais assimilée à une table vide.
+
+## Utilisation
+
+Depuis le dépôt principal ou un worktree, faire d'abord une comparaison :
+
+```bash
+doc/tools/sync_incwo_db.sh
+```
+
+Cette commande ne modifie pas MySQL. Le rapport SQL est écrit dans `doc/rapport_sync_db_AAAA-MM-JJ.sql`, avec son résumé Markdown dans `doc/rapport_sync_db_AAAA-MM-JJ.md`, selon la date du jour, dans le dépôt principal configuré par `WT_MAIN_ROOT`. Une nouvelle exécution le même jour actualise ces fichiers. Une copie de chaque rapport et les preuves détaillées restent dans le dossier privé `doc/sync_incwo_db_<date>/`.
+
+Le résumé Markdown est finalisé en fin d'exécution, y compris en cas d'erreur. Il indique si la structure a été modifiée, le nombre de changements proposés ou appliqués, les colonnes encore différentes avec leurs types et les tables non créées. Il explique les champs sans type SQL, donne les chemins des sauvegardes et indique explicitement si aucun dump final n'a été créé. « Aucun changement automatique applicable » ne signifie pas que toute la structure est identique à celle décrite par l'API.
+
+La section « Ce qui reste à faire, en détail » regroupe les conversions par nature et liste toutes les colonnes concernées. Pour chaque groupe, elle décrit le risque précis, les contrôles de valeurs et de relations à réaliser, puis la décision attendue : corriger, conserver un écart volontaire ou demander une information manquante. Les tables absentes ont chacune une explication et, lorsque disponibles, les sources SQL locales à examiner. Une migration d'ajout de colonnes n'est pas présentée comme une définition complète de table. Les contrôles recommandés y sont explicitement distingués des mesures réellement effectuées par le script.
+
+Pour appliquer les changements conservateurs après les contrôles automatiques :
+
+```bash
+doc/tools/sync_incwo_db.sh --apply
+```
+
+Cette option autorise l'application locale sans autre question interactive. Aucun accès à une base distante, aucune migration Rails et aucune opération Git ne sont lancés.
+
+Après toute exécution réussie, en comparaison seule comme avec `--apply`, même lorsqu'aucun changement n'est nécessaire, le script effectue les deux sauvegardes SQL non compressées décrites dans [la fiche MySQL](../../good_to_know/mysql.md), dans le dossier `doc/` du dépôt principal :
+
+- `dump_facile_building_AAAA-MM-JJ.sql` : structure et données, avec `--single-transaction` ;
+- `dump_facile_building_struct_AAAA-MM-JJ.sql` : structure seule, avec `--no-data`.
+
+Le nom de la base suit `--database`. Si un nom existe déjà, un suffixe horaire est ajouté aux deux fichiers pour conserver la sauvegarde précédente. Les fichiers sont privés (0600), vérifiés puis publiés uniquement lorsque les deux dumps sont complets. Leurs chemins, tailles et empreintes SHA-256 sont consignés dans `post_success_backup` du rapport. Un échec de cette sauvegarde finale fait échouer la commande, avec `synchronization_success: true` ou `comparison_success: true` pour distinguer un contrôle terminé de sa sauvegarde en échec. Une comparaison ou une synchronisation en échec ne produit pas ces deux dumps.
+
+Le service MySQL est `efsql1-lan` du profil Compose des outils, et la base cible est `facile_building`. Pour désigner explicitement un conteneur local :
+
+```bash
+doc/tools/sync_incwo_db.sh --container bofacile-efsql1-lan-1
+doc/tools/sync_incwo_db.sh --container bofacile-efsql1-lan-1 --apply
+```
+
+Les options `--database`, `--service`, `--output`, `--http-timeout` et `--command-timeout` sont décrites dans `--help`. `--output` doit désigner un nouveau dossier. Les mots de passe restent dans l'environnement du conteneur, sans figurer dans les arguments côté hôte.
+
+## Changements automatiques
+
+- Ajouter les colonnes absentes dont le type SQL est reconnu, avec `NULL DEFAULT NULL` : les contraintes réelles ne sont pas fournies par cette API.
+- Élargir un `VARCHAR`, un `TEXT` ou une variante de texte, en conservant tous les autres attributs de la colonne. Pour un passage de `VARCHAR` à `TEXT`, vérifier la capacité maximale en octets selon le jeu de caractères réel. Une valeur par défaut non NULL empêche cette conversion automatique.
+- Créer une table absente uniquement si son DDL fait partie des sources connues de `sync_incwo_db.py` et si tous ses champs et types concordent avec l'API. Les sources initiales concernent les passkeys et les tables WLI. Seul le `CREATE TABLE` est extrait ; les autres instructions des migrations ne sont jamais exécutées.
+
+Les réductions de types, changements numériques, changements de signe, conversions de dates et changements de types d'identifiants restent manuels. Les champs sans type SQL, les tables sans champs exposés et les tables absentes sans DDL connu ne sont pas inventés. Les colonnes et tables locales non exposées par l'API sont conservées. Aucun `DROP`, `DELETE`, `UPDATE`, `TRUNCATE` ou changement de `schema_info` n'est généré.
+
+Il s'agit donc d'une synchronisation partielle et conservatrice. Les métadonnées applicatives ne permettent pas de garantir l'identité des index, contraintes, valeurs par défaut et nullabilités avec la production. Les écarts laissés manuels restent présents après `--apply`.
+
+## Contrôles avant application
+
+L'application automatique nécessite Python 3.11 ou plus récent, Docker, un MySQL 8.0 local et des tables InnoDB. Elle utilise l'image exacte du serveur local, déjà disponible, sans téléchargement d'image.
+
+1. Verrouiller la synchronisation pour empêcher deux exécutions simultanées sur cette base.
+2. Faire une sauvegarde complète compressée, avec données, triggers, routines et événements.
+3. Restaurer la sauvegarde dans un conteneur MySQL jetable, de même version et sans réseau ni port publié. Aucun volume de la base réelle n'y est monté.
+4. Tester les changements en mode SQL strict. Vérifier les définitions des colonnes, les index, contraintes et options des tables existantes. Comparer des empreintes SHA-256 calculées sur toutes les valeurs préexistantes des tables concernées, dans l'ordre des clés primaires.
+5. Mettre en pause les clients applicatifs reconnus du profil des outils, y compris ceux des autres worktrees. Activer temporairement `read_only` sur le serveur MySQL local. Ce réglage concerne toutes les bases de ce serveur ; les lectures ordinaires restent possibles. Refuser de poursuivre s'il existe une transaction active, un événement MySQL activé ou un autre client privilégié capable de contourner la lecture seule.
+6. Revérifier la structure et faire une nouvelle sauvegarde complète avant l'application réelle.
+7. Appliquer les instructions testées, en mode strict et sans option permettant de continuer après une erreur, puis comparer à nouveau les définitions et toutes les valeurs préexistantes des tables concernées.
+8. Restaurer le mode d'écriture initial et reprendre les clients mis en pause par le script, même en cas d'erreur ou d'interruption. Supprimer le conteneur de test et ses données jetables.
+9. Après le succès de ces contrôles, exporter les deux sauvegardes datées, données et structure, conformément à la fiche MySQL.
+
+Les tables concernées doivent posséder une clé primaire permettant d'ordonner les lignes. Tous les avertissements SQL sont bloquants, sauf les messages précis de dépréciation de l'alias `utf8`, du jeu `utf8mb3` et de ses collations, qui ne changent pas l'encodage et sont consignés dans le rapport. Le DDL MySQL peut reconstruire ou verrouiller une table et provoque des commits implicites. Le temps de traitement et l'espace requis dépendent du volume de la base : deux sauvegardes complètes compressées et une restauration isolée précèdent les deux exports SQL de fin de traitement.
+
+Une erreur de test interdit l'application locale. Une erreur pendant l'application réelle peut laisser une structure partiellement mise à jour : aucune restauration automatique susceptible d'écraser des données n'est tentée. Conserver les rapports et la sauvegarde, vérifier l'état réel puis relancer une comparaison fraîche. Le script ne prétend pas supprimer les risques matériels ou les interventions concurrentes d'un administrateur externe.
+
+## Rapports et reprise
+
+Le dossier de sortie est créé avec des permissions privées et contient :
+
+- `metadata.json` : réponses collectées de l'API ;
+- `rapport.json` : structure initiale, opérations proposées, écarts manuels, empreintes de contrôle, statut et erreur éventuelle ;
+- `rapport.sql` : copie du rapport SQL publié dans `doc/rapport_sync_db_AAAA-MM-JJ.sql`, à ne pas exécuter directement ;
+- `rapport.md` : copie du résumé Markdown publié dans `doc/rapport_sync_db_AAAA-MM-JJ.md` ;
+- avec `--apply`, `avant_test.sql.gz` et `avant_application.sql.gz` : sauvegardes complètes, avec empreintes et tailles consignées dans le rapport.
+
+Pour refaire une comparaison avec des métadonnées archivées :
+
+```bash
+doc/tools/sync_incwo_db.sh --metadata-file doc/sync_incwo_db_<date>/metadata.json
+```
+
+`--metadata-file` est interdit avec `--apply` : une exécution réelle exige une collecte fraîche et une nouvelle lecture de la structure locale. Une seconde exécution ne repropose pas les colonnes ou élargissements déjà présents.
+
+## Vérification du script
+
+Les tests de planification et des barrières avant écriture sont exécutables sans accès à MySQL :
+
+```bash
+python3 -m unittest discover -s doc/tools/tests -p test_sync_incwo_db.py -v
+```
+
+Le test MySQL supplémentaire nécessite un conteneur explicitement réservé à cet usage via `INCWO_SYNC_TEST_MYSQL_CONTAINER`. Il crée uniquement la base de test `incwo_sync_fixture` et ne doit pas être lancé sur le conteneur de développement. Il contrôle notamment les accents, les espaces terminaux, les NULL, les valeurs par défaut, la collation, les index, les timestamps et la conservation d'un trigger.
