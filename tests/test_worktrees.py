@@ -27,6 +27,108 @@ import session_journal as journal
 
 
 class WorktreeTests(unittest.TestCase):
+    def task_remote(self, filename='remote-task.txt', remote_branch=None):
+        upstream = Path(self.temp.name) / 'task-remote'
+        subprocess.run(['git', 'clone', '-q', str(self.main), str(upstream)], check=True)
+        self.git(upstream, 'config', 'user.name', 'Fixture')
+        self.git(upstream, 'config', 'user.email', 'fixture@example.invalid')
+        branch = remote_branch or self.git(self.root, 'branch', '--show-current')
+        self.git(upstream, 'checkout', '-b', branch, self.git(self.root, 'rev-parse', 'HEAD'))
+        (upstream / filename).parent.mkdir(parents=True, exist_ok=True)
+        (upstream / filename).write_text('remote task change\n')
+        self.git(upstream, 'add', '-f', filename)
+        self.git(upstream, 'commit', '-m', 'remote task change')
+        self.git(self.root, 'remote', 'add', 'origin', str(upstream))
+        return upstream, self.git(upstream, 'rev-parse', 'HEAD')
+
+    def test_open_fast_forwards_remote_task_before_updating_master(self):
+        upstream, target = self.task_remote()
+        master = self.git(self.main, 'rev-parse', 'master')
+        with patch.object(cli, 'run', wraps=cli.run) as run:
+            cli.update_from_master(self.root)
+        self.assertEqual(self.git(self.root, 'rev-parse', 'HEAD'), target)
+        self.assertEqual(self.git(self.main, 'rev-parse', 'master'), master)
+        self.assertEqual((self.root / 'remote-task.txt').read_text(), 'remote task change\n')
+        commands = [call.args[0] for call in run.call_args_list]
+        task_ff = next(i for i, command in enumerate(commands) if '--ff-only' in command and target in command)
+        master_fetch = next(i for i, command in enumerate(commands) if '+refs/heads/master:refs/remotes/origin/master' in command)
+        self.assertLess(task_ff, master_fetch)
+
+    def test_remote_task_update_preserves_dirty_work_and_index_with_choice_one(self):
+        upstream, target = self.task_remote()
+        self.dirty_work()
+        before = cli.changes_snapshot(self.root)
+        self.interactive_update('1')
+        self.assertEqual(self.git(self.root, 'rev-parse', 'HEAD'), target)
+        self.assertEqual(cli.changes_snapshot(self.root)[1:], before[1:])
+        self.assertEqual(self.git(self.root, 'stash', 'list'), '')
+
+    def test_patch_choice_then_fast_forwards_remote_task_without_master_merge(self):
+        upstream, target = self.task_remote('tracked.txt')
+        self.dirty_work()
+        before = cli.changes_snapshot(self.root)
+        with patch.object(cli, 'refresh_master') as master:
+            self.assertEqual(self.interactive_update('2'), 'patch')
+        master.assert_not_called()
+        self.assertEqual(self.git(self.root, 'rev-parse', 'HEAD'), target)
+        self.assertEqual((self.root / 'tracked.txt').read_text(), 'remote task change\n')
+        self.assertEqual(self.git(self.root, 'status', '--porcelain'), '')
+        archive, = backup.pending(self.root)
+        manifest, _, _ = backup.inspect_archive(archive)
+        self.assertEqual(manifest['head'], before[0])
+        self.assertEqual(manifest['files'], before[3])
+
+    def test_divergent_remote_task_stops_before_prompt_stash_or_master_update(self):
+        self.task_remote()
+        self.git(self.root, 'commit', '--allow-empty', '-m', 'local task commit')
+        self.dirty_work()
+        before = cli.changes_snapshot(self.root)
+        with patch('builtins.input') as prompt, patch.object(cli, 'refresh_master') as master:
+            with self.assertRaisesRegex(c.ToolError, 'a divergé'):
+                cli.update_from_master(self.root)
+        prompt.assert_not_called()
+        master.assert_not_called()
+        self.assertEqual(cli.changes_snapshot(self.root), before)
+        self.assertEqual(self.git(self.root, 'stash', 'list'), '')
+
+    def test_local_commits_ahead_of_remote_task_are_kept(self):
+        upstream, target = self.task_remote()
+        self.git(self.root, 'fetch', 'origin')
+        self.git(self.root, 'merge', '--ff-only', target)
+        self.git(self.root, 'commit', '--allow-empty', '-m', 'local ahead')
+        head = self.git(self.root, 'rev-parse', 'HEAD')
+        cli.update_from_master(self.root)
+        self.assertEqual(self.git(self.root, 'rev-parse', 'HEAD'), head)
+
+    def test_remote_task_uses_configured_tracking_branch(self):
+        upstream, target = self.task_remote(remote_branch='review/task')
+        branch = self.git(self.root, 'branch', '--show-current')
+        self.git(self.root, 'config', 'branch.' + branch + '.remote', 'origin')
+        self.git(self.root, 'config', 'branch.' + branch + '.merge', 'refs/heads/review/task')
+        cli.update_from_master(self.root)
+        self.assertEqual(self.git(self.root, 'rev-parse', 'HEAD'), target)
+
+    def test_remote_task_network_error_keeps_dirty_work_before_prompt(self):
+        self.git(self.root, 'remote', 'add', 'origin', str(Path(self.temp.name) / 'missing-remote'))
+        self.dirty_work()
+        before = cli.changes_snapshot(self.root)
+        with patch('builtins.input') as prompt:
+            with self.assertRaisesRegex(c.ToolError, 'Impossible de vérifier'):
+                cli.update_from_master(self.root)
+        prompt.assert_not_called()
+        self.assertEqual(cli.changes_snapshot(self.root), before)
+
+    def test_remote_task_update_protects_ignored_file_and_keeps_stash_on_failure(self):
+        self.task_remote('doc/protected.txt')
+        self.dirty_work()
+        (self.root / 'doc/protected.txt').write_text('private local content\n')
+        head = self.git(self.root, 'rev-parse', 'HEAD')
+        with self.assertRaisesRegex(c.ToolError, 'stash'):
+            self.interactive_update('1')
+        self.assertEqual(self.git(self.root, 'rev-parse', 'HEAD'), head)
+        self.assertEqual((self.root / 'doc/protected.txt').read_text(), 'private local content\n')
+        self.assertTrue(self.git(self.root, 'stash', 'list'))
+
     def master_remote(self, filename='upstream.txt'):
         upstream = Path(self.temp.name) / 'upstream'
         subprocess.run(['git', 'clone', '-q', str(self.main), str(upstream)], check=True)
@@ -368,13 +470,50 @@ class WorktreeTests(unittest.TestCase):
         self.assertEqual((self.root / 'tracked.txt').read_text(), 'edited during backup\n')
         self.assertEqual(len(backup.pending(self.root)), 1)
 
-    def test_dirty_work_collision_blocks_cleanup(self):
+    def test_dirty_patch_collision_warns_and_preserves_other_worktree(self):
         (self.root / 'tracked.txt').write_text('task work\n')
         (self.main / 'tracked.txt').write_text('other work\n')
-        with self.assertRaisesRegex(c.ToolError, 'autre worktree'):
-            self.interactive_update('3')
-        self.assertEqual((self.root / 'tracked.txt').read_text(), 'task work\n')
+        self.git(self.main, 'add', 'tracked.txt')
+        before = cli.changes_snapshot(self.root)
+        other = (backup.diff_bytes(self.main, True), backup.diff_bytes(self.main))
+        import io
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(self.interactive_update('2'), 'patch')
+        self.assertIn('AVERTISSEMENT', output.getvalue())
+        self.assertEqual(self.git(self.root, 'status', '--porcelain'), '')
+        archive, = backup.pending(self.root)
+        manifest, _, _ = backup.inspect_archive(archive)
+        self.assertEqual(manifest['files'], before[3])
+        self.assertEqual((backup.diff_bytes(self.main, True), backup.diff_bytes(self.main)), other)
         self.assertEqual((self.main / 'tracked.txt').read_text(), 'other work\n')
+
+    def test_dirty_discard_collision_warns_and_preserves_other_worktree(self):
+        (self.root / 'tracked.txt').write_text('task work\n')
+        (self.main / 'tracked.txt').write_text('other work\n')
+        other = (backup.diff_bytes(self.main, True), backup.diff_bytes(self.main))
+        self.assertEqual(self.interactive_update('3'), 'discard')
+        self.assertEqual(self.git(self.root, 'status', '--porcelain'), '')
+        self.assertEqual((self.root / 'tracked.txt').read_text(), 'initial\n')
+        self.assertEqual((backup.diff_bytes(self.main, True), backup.diff_bytes(self.main)), other)
+        self.assertEqual((self.main / 'tracked.txt').read_text(), 'other work\n')
+        self.assertEqual(backup.pending(self.root), [])
+
+    def test_reach_patch_collision_opens_without_fetch_or_touching_other_worktree(self):
+        self.dirty_work()
+        (self.main / 'tracked.txt').write_text('other work\n')
+        before = cli.changes_snapshot(self.root)
+        with patch.object(cli.os, 'isatty', return_value=True), patch('builtins.input', return_value='2'), \
+                patch.object(atelier, 'preflight'), patch.object(sessions, 'prepare'), \
+                patch.object(atelier, 'open_atelier') as opened, patch.object(cli, 'refresh_master') as refresh:
+            self.reach('1234_réglage')
+        opened.assert_called_once_with(self.root, 'http', offer_patches=False)
+        refresh.assert_not_called()
+        self.assertEqual(self.git(self.root, 'status', '--porcelain'), '')
+        self.assertEqual((self.main / 'tracked.txt').read_text(), 'other work\n')
+        archive, = backup.pending(self.root)
+        manifest, _, _ = backup.inspect_archive(archive)
+        self.assertEqual(manifest['files'], before[3])
 
     def test_patch_name_targets_existing_worktree_from_main(self):
         (self.root / 'tracked.txt').write_text('save named task\n')

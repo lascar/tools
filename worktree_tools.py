@@ -105,9 +105,9 @@ def local_changes_choice(root):
         raise ToolError('Modifications locales dans %s ; relance dans un terminal pour choisir, ou utilise --no-update.' % root)
     print('Modifications locales dans %s :' % root)
     print(git(root, 'status', '--short', '--untracked-files=all').stdout, end='')
-    print(f'1. Fusionner {REMOTE}/{BASE_BRANCH} en conservant les changements locaux (mise de côté temporaire).')
-    print('2. Sauvegarder en patch puis nettoyer et ouvrir sans fusion.')
-    print('3. Éliminer les changements locaux puis ouvrir sans fusion.')
+    print(f'1. Actualiser la branche distante puis fusionner {REMOTE}/{BASE_BRANCH} en conservant les changements locaux (mise de côté temporaire).')
+    print(f'2. Sauvegarder en patch puis nettoyer, actualiser la branche distante et ouvrir sans fusion de {BASE_BRANCH}.')
+    print(f'3. Éliminer les changements locaux puis actualiser la branche distante et ouvrir sans fusion de {BASE_BRANCH}.')
     print('0. Annuler (par défaut).')
     while True:
         try:
@@ -230,6 +230,48 @@ def refresh_master(root, collision_max_age_days=None):
         return target
 
 
+def fetch_task_update(root, branch, head):
+    """Récupère la branche suivie et refuse une divergence avant toute écriture locale."""
+    tracking_remote = git(root, 'config', '--get', 'branch.' + branch + '.remote', check=False).stdout.strip()
+    remote = tracking_remote or REMOTE
+    remote_ref = git(root, 'config', '--get', 'branch.' + branch + '.merge', check=False).stdout.strip() or 'refs/heads/' + branch
+    if remote == '.' or not remote_ref.startswith('refs/heads/'):
+        raise ToolError('Suivi de branche non distant ; synchronise cette branche manuellement ou utilise --no-update.')
+    if git(root, 'remote', 'get-url', remote, check=False).returncode:
+        if tracking_remote:
+            raise ToolError('Remote de suivi absent : ' + remote)
+        print('Aucun remote configuré pour actualiser la branche de tâche.', flush=True)
+        return None
+    # Une branche encore locale peut ne pas avoir été publiée. Distinguer son
+    # absence d’une panne réseau, qui doit interrompre l’ouverture.
+    try:
+        available = run(['git', '-C', root, 'ls-remote', '--exit-code', '--heads', remote, remote_ref],
+                        capture=True, check=False, timeout=60)
+    except subprocess.TimeoutExpired:
+        raise ToolError('Délai dépassé pour vérifier la branche de tâche ; ouverture interrompue.') from None
+    if available.returncode == 2:
+        print('Branche de tâche absente sur %s ; commits locaux conservés.' % remote, flush=True)
+        return None
+    if available.returncode:
+        raise ToolError('Impossible de vérifier la branche de tâche sur %s ; ouverture interrompue.' % remote)
+    destination = 'refs/remotes/' + remote + '/' + remote_ref[len('refs/heads/'):]
+    print('Actualisation de la branche de tâche depuis %s/%s…' % (remote, remote_ref[len('refs/heads/'):]), flush=True)
+    try:
+        run(['git', '-C', root, 'fetch', remote, '+' + remote_ref + ':' + destination], timeout=120)
+    except subprocess.TimeoutExpired:
+        raise ToolError('Délai dépassé pour récupérer la branche de tâche ; ouverture interrompue.') from None
+    target = value(root, 'rev-parse', '--verify', destination + '^{commit}')
+    included = git(root, 'merge-base', '--is-ancestor', target, head, check=False).returncode
+    if included == 0:
+        return None
+    if included != 1:
+        raise ToolError('Impossible de comparer la branche de tâche à sa version distante.')
+    if git(root, 'merge-base', '--is-ancestor', head, target, check=False).returncode != 0:
+        raise ToolError('La branche %s a divergé de %s/%s ; aucune fusion automatique. Vérifie les commits locaux et distants, ou utilise --no-update.' %
+                        (branch, remote, remote_ref[len('refs/heads/'):]))
+    return target
+
+
 def update_from_master(root, collision_max_age_days=None):
     root, branch, _ = context(root, task=True)
     with locked(STATE / ('update-' + key(root) + '.lock')):
@@ -248,6 +290,22 @@ def update_from_master(root, collision_max_age_days=None):
             resolve_open_conflicts(root, collision_max_age_days)
             print('Les stash existants sont conservés ; aucune seconde réapplication.')
             return
+        task_head = value(root, 'rev-parse', 'HEAD')
+        task_target = fetch_task_update(root, branch, task_head)
+        ready(clean=False)
+        if value(root, 'rev-parse', 'HEAD') != task_head:
+            raise ToolError('La branche de tâche a changé pendant le fetch ; relance l’ouverture.')
+        def fast_forward_task():
+            if task_target is None:
+                return
+            ready()
+            if value(root, 'rev-parse', 'HEAD') != task_head:
+                raise ToolError('La branche de tâche a changé avant son actualisation ; relance l’ouverture.')
+            print('Mise à jour de la branche de tâche en avance rapide…', flush=True)
+            result = run(['git', '-C', root, 'merge', '--ff-only', '--no-autostash',
+                          '--no-overwrite-ignore', task_target], check=False)
+            if result.returncode:
+                raise ToolError('Actualisation de la branche de tâche interrompue ; vérifie git status. Aucun atelier lancé.')
         snapshot = None
         if value(root, 'status', '--porcelain', '--untracked-files=all'):
             snapshot = changes_snapshot(root)
@@ -256,10 +314,9 @@ def update_from_master(root, collision_max_age_days=None):
             if changes_snapshot(root) != snapshot:
                 raise ToolError('Le travail a changé pendant le choix ; relance l’ouverture.')
             if action in ('patch', 'discard'):
-                found = collisions(root, [f['path'] for f in snapshot[3]],
-                                   max_age_days=collision_max_age_days)
-                if found:
-                    raise ToolError('Fichiers modifiés dans un autre worktree ; traitement refusé :\n' + '\n'.join(found))
+                # Le nettoyage vise uniquement root ; les copies des autres
+                # worktrees sont indépendantes et restent intactes.
+                warn_merge_collisions(root, [f['path'] for f in snapshot[3]], collision_max_age_days)
                 if action == 'patch':
                     archive = patches.make(root)
                     if not archive:
@@ -267,24 +324,29 @@ def update_from_master(root, collision_max_age_days=None):
                     patches.inspect_archive(archive)
                 clear_local_changes(root, snapshot)
                 ready()
+                fast_forward_task()
                 print(f'Branche nettoyée ; ouverture sans fusion de {REMOTE}/{BASE_BRANCH}.')
                 return action
+        if snapshot is None:
+            fast_forward_task()
         print(f'Actualisation de {REMOTE}/{BASE_BRANCH} et du {BASE_BRANCH} local, puis fusion dans %s...' % branch, flush=True)
         target = refresh_master(root, collision_max_age_days)
         ready(clean=snapshot is None)
         if snapshot is not None and changes_snapshot(root) != snapshot:
             raise ToolError('Le travail a changé pendant le fetch ; aucune mise de côté effectuée.')
         included = git(root, 'merge-base', '--is-ancestor', target, 'HEAD', check=False).returncode
-        if included == 0:
+        if included == 0 and not (snapshot is not None and task_target is not None):
             print(f'La branche contient déjà {REMOTE}/{BASE_BRANCH}.')
             return
-        if included != 1: raise ToolError(f'Impossible de comparer la tâche à {REMOTE}/{BASE_BRANCH}.')
+        if included not in (0, 1): raise ToolError(f'Impossible de comparer la tâche à {REMOTE}/{BASE_BRANCH}.')
         base = value(root, 'merge-base', 'HEAD', target)
         paths = git(root, 'diff', '--name-only', '--no-renames', '-z', base, target).stdout.split('\0')
         # Une branche deja a jour ne touche pas au travail local. Si une fusion
         # est necessaire, le stash modifie aussi les fichiers du snapshot.
         if snapshot is not None:
             paths.extend(f['path'] for f in snapshot[3])
+            if task_target is not None:
+                paths.extend(patches.names(root, 'diff', '--name-only', '--no-renames', '-z', task_head, task_target))
         paths = sorted(set(p for p in paths if p))
         print('Vérification des collisions dans les autres worktrees (%s fichiers)...' %
               len([p for p in paths if p]), flush=True)
@@ -301,6 +363,16 @@ def update_from_master(root, collision_max_age_days=None):
                 stash = value(root, 'rev-parse', 'refs/stash')
             print('Changements mis de côté : %s (réapplication après fusion).' % stash, flush=True)
         ready()
+        if snapshot is not None and task_target is not None:
+            try:
+                fast_forward_task()
+            except ToolError as error:
+                raise ToolError('%s Changements locaux conservés dans le stash %s ; réapplique-les avec git stash apply --index %s.' %
+                                (error, stash, stash))
+            if git(root, 'merge-base', '--is-ancestor', target, 'HEAD', check=False).returncode == 0:
+                restore_open_stash(root, stash, collision_max_age_days)
+                print(f'La branche contient déjà {REMOTE}/{BASE_BRANCH}.')
+                return
         # Garder les conflits visibles et proteger les fichiers ignores.
         result = run(['git', '-C', root, 'merge', '--no-edit', '--no-autostash',
                       '--no-overwrite-ignore', '--ff', '--commit', target], check=False)

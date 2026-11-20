@@ -19,7 +19,7 @@ Inventaire actualisé le 20 novembre 2026 : **31 commandes et 2 fichiers de supp
 
 ## Rejoindre et gérer les ateliers
 
-- [worktree_reach.sh](doc/scripts.md#worktree_reachsh) — créer, ouvrir ou afficher une tâche ; sans argument, afficher le terminal principal.
+- [worktree_reach.sh](doc/scripts.md#worktree_reachsh) — créer, ouvrir ou afficher une tâche ; avant la réouverture, actualiser sa branche distante en avance rapide ; sans argument, afficher le terminal principal.
 - [worktree_new.sh](doc/scripts.md#worktree_newsh) — créer explicitement une nouvelle branche et son worktree.
 - [worktree_open.sh](doc/scripts.md#worktree_opensh) — ouvrir une branche existante dans son worktree.
 - [worktree_open_current.sh](doc/scripts.md#worktree_open_currentsh) — ouvrir l’atelier du worktree courant.
@@ -131,7 +131,7 @@ La fermeture collective s’arrête au premier refus (buffers Vim non enregistr�
 
 Le statut et la fermeture collective concernent les ateliers gérés par les outils. Un simple terminal ouvert manuellement dans un dossier de tâche ne suffit pas à déclarer un atelier ouvert.
 
-`worktree_reach.sh` crée ou rattache le worktree si nécessaire, ouvre un atelier fermé, ou affiche un atelier vivant. Si Codex s’est terminé en erreur dans un atelier vivant, la commande ferme uniquement son superviseur inactif et ouvre une nouvelle fenêtre Codex ; les autres onglets restent disponibles, sans actualisation Git ni activation Docker. Une session Codex encore active reste ouverte. `--prepare-only` ne relance aucun onglet. `--no-update` évite l’actualisation Git lors d’une ouverture. Sans tâche, la commande affiche le terminal principal existant sans actualisation ni démarrage du runtime.
+`worktree_reach.sh` crée ou rattache le worktree si nécessaire, ouvre un atelier fermé, ou affiche un atelier vivant. À la réouverture d’un worktree existant fermé, il récupère sa branche distante et l’intègre uniquement en avance rapide avant la fusion éventuelle de la base. Une divergence arrête le traitement. Les modifications locales passent par le menu de conservation ; les collisions entre worktrees sont signalées sans bloquer les choix de sauvegarde/nettoyage ou d’élimination, qui restent limités au worktree choisi. Si Codex s’est terminé en erreur dans un atelier vivant, la commande ferme uniquement son superviseur inactif et ouvre une nouvelle fenêtre Codex ; les autres onglets restent disponibles, sans actualisation Git ni activation Docker. Une session Codex encore active reste ouverte. `--prepare-only` ne relance aucun onglet. `--no-update` évite l’actualisation Git lors d’une ouverture. Sans tâche, la commande affiche le terminal principal existant sans actualisation ni démarrage du runtime.
 
 Lors de l’actualisation par `worktree_reach.sh`, la recherche des collisions porte uniquement sur les autres worktrees modifiés au cours des sept derniers jours, seuil inclus. L’activité correspond aux dates des fichiers et répertoires, de HEAD et de son journal Git ; les liens vers les dossiers partagés ne sont pas suivis et un rafraîchissement de l’index par `git status` ne compte pas comme une modification. Les autres commandes conservent leur contrôle sans limite d’âge.
 
