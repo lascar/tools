@@ -26,9 +26,9 @@ nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
 <p>La racine principale, les conventions Git et les services viennent du <code>.env</code>. Les noms historiques contenant <code>master</code> restent des noms de commandes ; ils utilisent la branche principale configurée. Les patchs, archives et fichiers <code>.done</code> restent exclusivement dans WT_MAIN_ROOT/doc.</p>
 <h2 id="demarrer-la-session-principale">Démarrer la session principale</h2>
 <h3 id="zzsh">zz.sh</h3>
-<pre><code>/home/pascal/development/bo.facile/doc/tools/zz.sh [--shell | --console | --server] [--no-report]
+<pre><code>doc/tools/zz.sh [--shell | --console | --server] [--no-report]
 </code></pre>
-<p>Lanceur personnel de Pascal, anciennement <code>open_bo.sh</code>. Rejoint le dépôt physique <code>/home/pascal/development/bo.facile</code> et exige la branche <code>master</code>, sans changer de branche. Une session graphique GNOME et les commandes <code>git</code>, <code>python3</code>, <code>docker</code> et <code>gnome-terminal</code> sont nécessaires.</p>
+<p>Lanceur personnel de Pascal, anciennement <code>open_bo.sh</code>. À appeler depuis le dépôt principal ou via le <code>PATH</code> des outils. Rejoint le dépôt physique défini par <code>WT_MAIN_ROOT</code> et exige la branche <code>master</code>, sans changer de branche. Une session graphique GNOME et les commandes <code>git</code>, <code>python3</code>, <code>docker</code> et <code>gnome-terminal</code> sont nécessaires.</p>
 <p>Les opérations se succèdent dans cet ordre :</p>
 <ol>
 <li>Vérifier que tous les ateliers de tâches sont fermés, hors dépôt principal. Un onglet géré encore vivant suffit à bloquer ; les terminaux ouverts manuellement hors des outils ne sont pas détectés. En cas de blocage, afficher les noms, branches et chemins concernés puis quitter avant le pull et toute action Docker. Aucun atelier n’est fermé automatiquement. Utiliser <code>worktree_status.sh</code>, puis <code>worktree_close.sh</code> depuis le principal pour les fermer.</li>
@@ -38,17 +38,17 @@ nav { border-bottom: 1px solid #d0d7de; padding-bottom: 12px; }
 <li>Ouvrir quatre onglets GNOME : <strong>Codex</strong>, <strong>shell Docker</strong>, <strong>Merge</strong> et <strong>Rapport des tâches</strong>. L’onglet Merge lance <code>merge_to_master.sh</code>, dont le rôle actuel est d’auditer l’intégration sans effectuer de fusion. La mise à jour interactive éventuelle de Codex ne bloque pas l’ouverture des autres onglets.</li>
 </ol>
 <p>Le deuxième onglet ouvre un shell Docker par défaut (<code>--shell</code>). <code>--console</code> le remplace par la console Rails et <code>--server</code> par le serveur. Chaque onglet conserve un Bash interactif après la sortie de sa commande. Les onglets sont ajoutés à la fenêtre GNOME appelante lorsqu’elle est identifiée ; sinon une nouvelle fenêtre est ouverte.</p>
-<p>Par défaut, le prompt personnel <code>doc/build_rapport_taches.txt</code> doit être lisible ; son absence bloque le lancement avant le pull et les actions Docker. Le quatrième onglet, nommé <code>bo.facile/rapport tâches</code>, démarre automatiquement une nouvelle session Codex, sans reprise ni bifurcation, qui lit et exécute ce prompt. Celui-ci prévoit la lecture des consignes du projet, la revue Incwo/Git/production, la génération de <code>doc/rapport_taches.html</code> et son ouverture dans un nouvel onglet Firefox, sous réserve des autorisations graphiques. Le prompt et le rapport restent hors du dépôt tools. Si deux onglets existaient déjà dans la fenêtre appelante, le rapport sera le sixième ; dans une nouvelle fenêtre, il sera le quatrième. Les trois premiers onglets portent le titre <code>bo.facile/master</code>.</p>
+<p>Par défaut, le prompt personnel <code>doc/build_rapport_taches.txt</code> doit être lisible ; son absence bloque le lancement avant le pull et les actions Docker. Le quatrième onglet, nommé <code>${APPLICATION}/rapport tâches</code>, démarre automatiquement une nouvelle session Codex, sans reprise ni bifurcation, qui lit et exécute ce prompt. Celui-ci prévoit la lecture des consignes du projet, la revue Incwo/Git/production, la génération de <code>doc/rapport_taches.html</code> et son ouverture dans un nouvel onglet Firefox, sous réserve des autorisations graphiques. Le prompt et le rapport restent hors du dépôt tools. Si deux onglets existaient déjà dans la fenêtre appelante, le rapport sera le sixième ; dans une nouvelle fenêtre, il sera le quatrième. Les trois premiers onglets portent le titre <code>${APPLICATION}/master</code>.</p>
 <p>Avec <code>--no-report</code>, seuls les trois onglets Codex, Docker et Merge sont ouverts : aucune session de rapport ne démarre et le fichier <code>doc/build_rapport_taches.txt</code> n’est pas requis. Cette option se combine avec un seul mode <code>--shell</code>, <code>--console</code> ou <code>--server</code>, dans n’importe quel ordre. Sans cette option, le rapport reste automatique.</p>
 <p>Le prompt définit le contenu du rapport : annonces récentes à faire, cinq actions limitées aux tâches avec un rang Scrum vérifié et sans doublon avec ces annonces, puis tâches classées par catégorie et priorité Scrum, avec la section finale « Tâches en cours mais hors scrum ». Pour ces dernières, le prompt autorise uniquement l’ajout de la note interne « cette tâche n&#x27;est pas dans mon scrum », après vérification de toutes les notes et sans doublon avec la graphie sans accent. Ces règles sont appliquées par la session Codex, pas par le lanceur Bash. Voir les <a href="workflow.html#rapport-operationnel-des-taches">règles du rapport opérationnel</a>.</p>
 <p>Les deux sessions Codex reçoivent l’accès aux dossiers centraux <code>doc</code> et <code>sessions_codex</code>. L’onglet Codex principal reçoit explicitement l’accès aux dossiers centraux <code>doc</code> et <code>sessions_codex</code>, ainsi que la consigne de lire <code>AGENTS.md</code>, puis <code>AGENTS-pascal.md</code>, et de reprendre <code>sessions_codex/master.jsont</code>.</p>
-<pre><code>/home/pascal/development/bo.facile/doc/tools/zz.sh
-/home/pascal/development/bo.facile/doc/tools/zz.sh --console
-/home/pascal/development/bo.facile/doc/tools/zz.sh --server
-/home/pascal/development/bo.facile/doc/tools/zz.sh --no-report
-/home/pascal/development/bo.facile/doc/tools/zz.sh --console --no-report
-/home/pascal/development/bo.facile/doc/tools/zz.sh --no-report --server
-/home/pascal/development/bo.facile/doc/tools/zz.sh --help
+<pre><code>doc/tools/zz.sh
+doc/tools/zz.sh --console
+doc/tools/zz.sh --server
+doc/tools/zz.sh --no-report
+doc/tools/zz.sh --console --no-report
+doc/tools/zz.sh --no-report --server
+doc/tools/zz.sh --help
 </code></pre>
 <h2 id="rejoindre-et-gerer-les-ateliers">Rejoindre et gérer les ateliers</h2>
 <h3 id="worktree_reachsh">worktree_reach.sh</h3>
@@ -122,7 +122,7 @@ worktree_prune 30             # retirer les worktrees éligibles sans sauvegarde
 <pre><code>change_branch.sh [tâche]
 </code></pre>
 <p>Fonction Bash à charger avec <code>worktree_shell.sh</code>. Sans worktree rattaché, bascule sur la branche locale existante dans le dépôt courant, par un simple <code>git checkout</code>, sans pull ni fusion. Ne crée ni branche ni worktree. Une branche absente localement est refusée.</p>
-<p>Sans argument, revient dans le dépôt principal sur sa branche de référence (master pour bo.facile), sans pull ni fusion. Si le principal est sur une autre branche, effectue un simple <code>git checkout</code>.</p>
+<p>Sans argument, revient dans le dépôt principal sur sa branche de référence (master dans le profil personnel), sans pull ni fusion. Si le principal est sur une autre branche, effectue un simple <code>git checkout</code>.</p>
 <p>La bascule locale et le retour à la branche de référence n’inspectent ni les processus, ni Docker, ni les ateliers et ne demandent pas de sudo. Git conserve les modifications compatibles et refuse le checkout si des fichiers locaux seraient écrasés.</p>
 <p>Avec un worktree de tâche existant, contrôle la propreté du départ, du principal et de la cible ; refuse l’activité détectée dans la cible ; actualise la branche principale par pull en avance rapide ; déplace le terminal dans la tâche puis y fusionne la base. Le principal doit déjà être sur sa branche principale. Aucun atelier ni serveur n’est lancé.</p>
 <p>Le processus <code>codebase-memory</code> est ignoré par ce contrôle : il peut rester ouvert entre deux sessions et ne bloque pas l’actualisation. Son dossier n’est pas inspecté et ne déclenche donc pas de demande sudo. Les autres commandes actives restent bloquantes.</p>

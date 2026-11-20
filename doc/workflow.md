@@ -31,7 +31,7 @@ worktree_status.sh
 ### Démarrer la session principale de Pascal
 
 ```bash
-/home/pascal/development/bo.facile/doc/tools/zz.sh
+doc/tools/zz.sh
 ```
 
 Ce lanceur personnel exige `master` dans le dépôt principal et tous les ateliers de tâches fermés. Vérifie leur état avec `worktree_status.sh` et ferme-les avec `worktree_close.sh` depuis le principal. Un atelier ouvert bloque le lancement avant toute actualisation Git ou action Docker.

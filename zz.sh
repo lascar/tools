@@ -2,9 +2,8 @@
 set -euo pipefail
 
 # Lanceur personnel : le dépôt principal reste toujours sur master.
-project_dir=/home/pascal/development/bo.facile
-tools_dir="$project_dir/doc/tools"
-self="$tools_dir/zz.sh"
+self=$(readlink -f -- "${BASH_SOURCE[0]}")
+tools_dir=$(dirname -- "$self")
 
 fail() { printf 'Erreur : %s\n' "$*" >&2; exit 1; }
 
@@ -17,6 +16,8 @@ if [[ ${1:-} == --help || ${1:-} == -h ]]; then
     exit 0
 fi
 
+project_dir=$(python3 "$tools_dir/_wt_config.py" --main-root)
+project_name=$(python3 "$tools_dir/_wt_config.py" --project-name)
 cd -- "$project_dir"
 branch=$(git branch --show-current)
 [[ $branch == master ]] || fail "Le dépôt est sur ${branch:-HEAD détachée}, master est requis. Aucune branche changée."
@@ -138,10 +139,10 @@ if [[ -n ${GNOME_TERMINAL_SCREEN:-} ]]; then
 else
     terminal+=(--window)
 fi
-terminal+=(--title='bo.facile/master' --working-directory="$project_dir" --command="bash '$self' --_tab codex"
-    --tab --title='bo.facile/master' --working-directory="$project_dir" --command="bash '$self' --_tab $role"
-    --tab --title='bo.facile/master' --working-directory="$project_dir" --command="bash '$self' --_tab merge")
+terminal+=(--title="$project_name/master" --working-directory="$project_dir" --command="bash '$self' --_tab codex"
+    --tab --title="$project_name/master" --working-directory="$project_dir" --command="bash '$self' --_tab $role"
+    --tab --title="$project_name/master" --working-directory="$project_dir" --command="bash '$self' --_tab merge")
 if [[ $report_enabled == true ]]; then
-    terminal+=(--tab --title='bo.facile/rapport tâches' --working-directory="$project_dir" --command="bash '$self' --_tab report")
+    terminal+=(--tab --title="$project_name/rapport tâches" --working-directory="$project_dir" --command="bash '$self' --_tab report")
 fi
 "${terminal[@]}"

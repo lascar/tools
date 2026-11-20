@@ -6,14 +6,36 @@ Lire et modifier la configuration
 
 Le fichier privé est doc/tools/.env. Le modèle générique est .env.example (../.env.example). Cette référence décrit toutes ses variables, sans reprendre les valeurs privées de ton installation. Aucun réglage applicatif n’impose un framework : serveur, console, services et sondes sont fournis par le profil.
 
-Le format est CLE=valeur. Les espaces nécessitent des guillemets ; les listes et objets JSON sont généralement entourés de guillemets simples. Les chaînes multilignes utilisent des séquences JSON \n. Le fichier est lu comme des données : aucune commande shell, interpolation $VARIABLE ou substitution $(...) n’est exécutée. Ne lance pas source .env.
+Le format est CLE=valeur. Les espaces nécessitent des guillemets ; les listes et objets JSON sont généralement entourés de guillemets simples. Les chaînes multilignes utilisent des séquences JSON \n. Le fichier est lu comme des données : aucune commande shell ni substitution $(...) n’est exécutée. Seuls les marqueurs ${HOME} et ${APPLICATION} sont remplacés dans les réglages WT_*. Les autres variables restent littérales. Ne lance pas source .env.
 
 # Depuis le dossier des outils :
 python3 _wt_config.py --check
 
-Une variable exportée dans l’environnement du processus prend le pas sur le fichier. WT_CONFIG_FILE choisit un autre fichier ; le chemin relatif de ce sélecteur part du dossier courant du processus. Sans ce sélecteur, le fichier .env utilisé est toujours celui situé à côté de _wt_config.py. Les variables du fichier ne sont pas automatiquement exportées dans ton terminal Bash.
+Une variable WT_* exportée dans l’environnement du processus prend le pas sur le fichier. Les clés HOME et APPLICATION sont, elles, lues dans le profil des outils ; elles ne remplacent aucune variable système. WT_CONFIG_FILE choisit un autre fichier ; le chemin relatif de ce sélecteur part du dossier courant du processus. Sans ce sélecteur, le fichier .env utilisé est toujours celui situé à côté de _wt_config.py. Les variables du fichier ne sont pas automatiquement exportées dans ton terminal Bash.
 
 Les valeurs d’exemple ci-dessous viennent du modèle générique. Le modèle générique fournit une définition Compose dans le .env ; adapte images, entrypoints, services, réseaux et volumes à ton application. Les fichiers et exécutables référencés par les conteneurs doivent exister dans le projet ou dans les images.
+
+HOME et APPLICATION — chemins et nom du projet
+
+Définis ces deux valeurs dans le .env des outils :
+
+HOME=/home/user
+APPLICATION=mon-application
+WT_MAIN_ROOT='${HOME}/development/${APPLICATION}'
+WT_PROJECT_NAME='${APPLICATION}'
+WT_WORKTREE_PREFIX='${APPLICATION}-'
+WT_LEGACY_ROOT_ALIASES='["${HOME}/${APPLICATION}"]'
+WT_TERMINAL_PROFILE_TITLE='${APPLICATION}/master'
+
+Adapte HOME à ton répertoire personnel et APPLICATION au nom du projet. Si le dépôt se trouve directement dans ton répertoire personnel, utilise WT_MAIN_ROOT='${HOME}/${APPLICATION}'. Les chemins ne sont pas devinés : c’est WT_MAIN_ROOT qui définit l’emplacement réel du dépôt principal.
+
+Les deux marqueurs sont remplacés dans les valeurs WT_*, y compris les chaînes et clés contenues dans les listes et objets JSON. Les guillemets et antislashs d’un chemin restent valides dans les valeurs JSON. Les remplacements ne sont pas récursifs : HOME et APPLICATION doivent contenir des valeurs concrètes. Une référence à un marqueur vide ou récursif est refusée sans afficher sa valeur. Les formes $HOME, $APPLICATION et ${AUTRE_VARIABLE} restent littérales pour le chargeur des outils.
+
+La clé `HOME` du profil ne modifie pas le `$HOME` du système ou du terminal. Les préférences du shell, les clés SSH et les paramètres des autres programmes gardent leur emplacement habituel. Le .env ne doit donc jamais être chargé avec source. PASSWORD est lu littéralement et ne subit aucune de ces substitutions.
+
+Les anciens profils avec des chemins et noms explicites continuent de fonctionner. Si HOME n’est pas défini, son marqueur utilise le répertoire personnel du processus. APPLICATION doit être défini pour utiliser son marqueur ; il sert également de nom de projet lorsque WT_PROJECT_NAME est absent. Les valeurs WT_* explicitement configurées continuent de primer : les projets Docker et volumes existants ne sont pas renommés automatiquement.
+
+zz.sh retrouve les outils depuis son propre emplacement, lit WT_MAIN_ROOT et utilise WT_PROJECT_NAME pour les titres des onglets. Il conserve son exigence de branche master et ses actions habituelles ; modifier le profil ne le lance pas.
 
 Serveur et console sans dépendance au framework
 
@@ -63,7 +85,7 @@ Les champs Compose permettent de définir les particularités de l’installatio
 - ports, volumes, networks, depends_on, healthcheck, profiles et les autres champs Compose : branchements et contraintes de l’application.
 - volumes, networks, secrets et configs à la racine : définitions des ressources utilisées par les services.
 
-Les chemins relatifs du profil applicatif partent de WT_MAIN_ROOT. Ceux du profil CI partent du worktree de tâche, grâce au répertoire de projet passé explicitement à Compose. Les variables ${NOM} d’un modèle sont interpolées par Compose à l’exécution, via son environnement habituel et WT_COMPOSE_ENV_FILE pour l’application ; le chargeur du .env des outils ne les interprète pas. Les valeurs d’environnement de l’application doivent être déclarées dans le modèle Compose ou dans son env_file : les réglages WT_* ne sont pas automatiquement transmis aux conteneurs.
+Les chemins relatifs du profil applicatif partent de WT_MAIN_ROOT. Ceux du profil CI partent du worktree de tâche, grâce au répertoire de projet passé explicitement à Compose. Les variables ${NOM} d’un modèle sont interpolées par Compose à l’exécution, via son environnement habituel et WT_COMPOSE_ENV_FILE pour l’application ; le chargeur du .env des outils ne les interprète pas, à l’exception des marqueurs réservés ${HOME} et ${APPLICATION} dans les réglages WT_*. Les valeurs d’environnement de l’application doivent être déclarées dans le modèle Compose ou dans son env_file : les réglages WT_* ne sont pas automatiquement transmis aux conteneurs.
 
 Les outils écrivent des fichiers privés dans WT_STATE_DIR/configs pour transmettre ces objets à Compose. Un nom dérivé du contenu évite d’écraser le modèle déjà utilisé par un atelier. Ces fichiers sont générés ; modifie le .env, puis ferme et rouvre l’atelier pour appliquer le profil. Les anciennes définitions générées restent disponibles pour les états existants.
 

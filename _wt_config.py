@@ -27,9 +27,26 @@ def load_env(path):
 
 CONFIG_FILE = Path(os.environ.get('WT_CONFIG_FILE', TOOLS / '.env')).expanduser().resolve()
 VALUES = load_env(CONFIG_FILE)
+CONFIG_HOME = VALUES.get('HOME', str(Path.home()))
+CONFIG_APPLICATION = VALUES.get('APPLICATION', '')
 
 
-def setting(name, default=None):
+def expand_config_value(value):
+    # Seuls ces deux marqueurs sont substitués ; aucune évaluation shell ni
+    # expansion recursive des valeurs privees ou des commandes applicatives.
+    if not isinstance(value, str):
+        return value
+    replacements = {'HOME': CONFIG_HOME, 'APPLICATION': CONFIG_APPLICATION}
+    def replace(match):
+        name = match[1]
+        result = replacements[name]
+        if not result or '${HOME}' in result or '${APPLICATION}' in result:
+            raise ValueError('Paramètre %s absent ou récursif dans .env.' % name)
+        return result
+    return re.sub(r'\$\{(HOME|APPLICATION)\}', replace, value)
+
+
+def raw_setting(name, default=None):
     key = 'WT_' + name
     result = os.environ.get(key, VALUES.get(key, default))
     if result is None:
@@ -37,13 +54,27 @@ def setting(name, default=None):
     return result
 
 
+def setting(name, default=None):
+    return expand_config_value(raw_setting(name, default))
+
+
 def setting_json(name, default=None):
-    raw = setting(name, json.dumps(default) if default is not None else None)
+    raw = raw_setting(name, json.dumps(default) if default is not None else None)
     try:
-        return json.loads(raw)
+        value = json.loads(raw)
     except ValueError:
         # Ne jamais afficher la valeur : elle peut contenir des données privées.
         raise ValueError('Paramètre JSON invalide : WT_%s.' % name)
+    # Interpoler après décodage préserve les guillemets et antislashs des chemins.
+    def expand(item):
+        if isinstance(item, str):
+            return expand_config_value(item)
+        if isinstance(item, list):
+            return [expand(part) for part in item]
+        if isinstance(item, dict):
+            return {expand_config_value(key): expand(part) for key, part in item.items()}
+        return item
+    return expand(value)
 
 
 def setting_int(name, default=None):
@@ -55,7 +86,7 @@ def configured_path(name, base=TOOLS, default=None):
     return (raw if raw.is_absolute() else base / raw).resolve()
 
 
-PROJECT_NAME = setting('PROJECT_NAME')
+PROJECT_NAME = setting('PROJECT_NAME', CONFIG_APPLICATION or None)
 BASE_BRANCH = setting('BASE_BRANCH', 'main')
 REMOTE = setting('REMOTE', 'origin')
 FEATURE_PREFIX = setting('FEATURE_PREFIX', 'feature/')
@@ -167,11 +198,14 @@ if __name__ == '__main__':
     parser.add_argument('--check', action='store_true', help='Valider la configuration sans afficher ses valeurs')
     parser.add_argument('--session-env', choices=('SHELL_CLOSE', 'VIM_SESSION', 'VIM_CLOSE', 'VIM_REFUSED'), help='Lire une variable de session, avec les préfixes historiques configurés')
     parser.add_argument('--main-root', action='store_true', help='Afficher uniquement le chemin physique du dépôt principal')
+    parser.add_argument('--project-name', action='store_true', help='Afficher uniquement le nom de l’application configurée')
     args = parser.parse_args()
     if args.session_env:
         prefixes = ['WT'] + setting_json('LEGACY_ENV_PREFIXES', [])
         print(next((os.environ[prefix + '_' + args.session_env] for prefix in prefixes if os.environ.get(prefix + '_' + args.session_env)), ''))
     elif args.main_root:
         print(configured_path('MAIN_ROOT'))
+    elif args.project_name:
+        print(PROJECT_NAME)
     else:
         print('Configuration worktree valide.')

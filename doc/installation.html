@@ -50,7 +50,7 @@ command -v codex
 </code></pre>
 <p><code>docker info</code> doit réussir avec ton utilisateur courant. Si l’agent n’est pas dans le <code>PATH</code> de ce terminal, configure <code>CODEX_BIN</code> avec son chemin absolu. Prépare également son accès avant d’ouvrir un atelier.</p>
 <h2 id="2-placer-les-outils-dans-le-projet">2. Placer les outils dans le projet</h2>
-<p>Le dépôt principal du projet doit déjà être disponible localement, avec sa branche de base et ses accès Git opérationnels. Le dossier personnel <code>doc/</code> n’est pas versionné dans le Git du projet : il peut donc être absent après un clonage de bo.facile. Les outils sont un dépôt Git indépendant, à cloner dans <code>doc/tools/</code>.</p>
+<p>Le dépôt principal du projet doit déjà être disponible localement, avec sa branche de base et ses accès Git opérationnels. Le dossier personnel <code>doc/</code> n’est pas versionné dans le Git du projet : il peut donc être absent après un clonage de l’application. Les outils sont un dépôt Git indépendant, à cloner dans <code>doc/tools/</code>.</p>
 <p>Depuis la racine du dépôt principal, vérifie le contexte puis crée <code>doc/</code> s’il manque :</p>
 <pre><code>cd /chemin/vers/projet
 git rev-parse --show-toplevel
@@ -72,16 +72,17 @@ fi
 git -C doc/tools remote -v
 ls doc/tools/.env.example doc/tools/worktree_shell.sh
 </code></pre>
-<p>Si Git retourne la racine de bo.facile, le dossier n’est pas un dépôt indépendant. Corrige cette installation avant de continuer, sans écraser ses fichiers personnels. Le clonage des outils ne fournit pas les autres fichiers personnels de <code>doc/</code> référencés par le profil ; prépare-les séparément si nécessaire.</p>
+<p>Si Git retourne la racine de l’application, le dossier n’est pas un dépôt indépendant. Corrige cette installation avant de continuer, sans écraser ses fichiers personnels. Le clonage des outils ne fournit pas les autres fichiers personnels de <code>doc/</code> référencés par le profil ; prépare-les séparément si nécessaire.</p>
 <p>Le dossier parent du dépôt principal doit permettre la création des worktrees voisins. Les dossiers de stockage des états, sauvegardes et journaux doivent aussi être accessibles en écriture.</p>
 <h2 id="3-creer-et-adapter-la-configuration">3. Créer et adapter la configuration</h2>
 <p>Pour une nouvelle installation uniquement, crée le fichier privé sans écraser une configuration existante :</p>
 <pre><code>cp -n doc/tools/.env.example doc/tools/.env
 vim doc/tools/.env
 </code></pre>
-<p>Le modèle est générique : ses noms de projet, sa branche <code>main</code>, ses images Python et ses commandes applicatives doivent être adaptés au projet réel. Pour bo.facile, pars du profil local approprié plutôt que d’utiliser les services de démonstration tels quels.</p>
+<p>Le modèle est générique : ses noms de projet, sa branche <code>main</code>, ses images Python et ses commandes applicatives doivent être adaptés au projet réel. Pour ton application, pars du profil local approprié plutôt que d’utiliser les services de démonstration tels quels.</p>
 <p>Vérifie en priorité :</p>
 <ul>
+<li><code>HOME</code> et <code>APPLICATION</code> : répertoire personnel et nom de l’application, réutilisables par <code>${HOME}</code> et <code>${APPLICATION}</code> dans les réglages <code>WT_*</code>.</li>
 <li><code>WT_MAIN_ROOT</code> : racine réelle du dépôt principal ; un chemin relatif part du dossier des outils.</li>
 <li><code>WT_BASE_BRANCH</code>, <code>WT_REMOTE</code>, <code>WT_FEATURE_PREFIX</code> et <code>WT_TICKET_PREFIX</code> : conventions Git du projet.</li>
 <li><code>WT_PROJECT_NAME</code>, <code>WT_WORKTREE_PREFIX</code>, <code>WT_STATE_DIR</code> et <code>WT_JOURNAL_DIR</code> : noms et stockage local.</li>
