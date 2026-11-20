@@ -85,6 +85,11 @@ WT_CONSOLE_COMMAND=&#x27;[&quot;python3&quot;,&quot;-i&quot;]&#x27;
 <p>Chemin du fichier .env alternatif, défini dans l’environnement du processus, avant le démarrage des outils. Ne se définit pas à l’intérieur du .env pour sélectionner ce même fichier.</p>
 <pre><code>WT_CONFIG_FILE=/chemin/profil.env python3 _wt_config.py --check
 </code></pre>
+<h2 id="password-preparation-des-dumps-locaux-incwo">PASSWORD — préparation des dumps locaux Incwo</h2>
+<p>Variable propre à <code>sync_incwo_db.sh</code>, sans préfixe <code>WT_</code>. Mot de passe commun des deux comptes locaux configurés dans ce script, lu exclusivement dans <code>doc/tools/.env</code>. Ce réglage ne change pas le mot de passe MySQL. Exemple fictif :</p>
+<pre><code>PASSWORD=&#x27;ton-mot-de-passe-local&#x27;
+</code></pre>
+<p>Le script suit la procédure Rails de <a href="../../good_to_know/change_user_password.html">changement de mot de passe</a>, avant les dumps finaux. Une valeur absente ou vide, un compte non conforme ou un échec de préparation produit un avertissement dans le rapport, sans arrêter les dumps. Le secret n’est pas journalisé. Voir <a href="../doc/sync_incwo_db.html">le guide de synchronisation</a>.</p>
 <h2 id="variables-du-fichier-env">Variables du fichier .env</h2>
 <h3 id="wt_main_root">WT_MAIN_ROOT</h3>
 <p>Chemin du dépôt principal. Un chemin relatif part du dossier contenant les outils, même avec WT_CONFIG_FILE. Les patchs sont toujours centralisés dans son sous-dossier doc.</p>

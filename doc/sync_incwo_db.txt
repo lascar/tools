@@ -14,7 +14,7 @@ Depuis le dépôt principal ou un worktree, faire d'abord une comparaison :
 
 doc/tools/sync_incwo_db.sh
 
-Cette commande ne modifie pas MySQL. Le rapport SQL est écrit dans doc/rapport_sync_db_AAAA-MM-JJ.sql, avec son résumé Markdown dans doc/rapport_sync_db_AAAA-MM-JJ.md, selon la date du jour, dans le dépôt principal configuré par WT_MAIN_ROOT. Une nouvelle exécution le même jour actualise ces fichiers. Une copie de chaque rapport et les preuves détaillées restent dans le dossier privé doc/sync_incwo_db_<date>/.
+Cette commande ne modifie pas la structure MySQL. Avant les dumps finaux, elle tente de préparer les mots de passe des deux comptes locaux décrits ci-dessous. Le rapport SQL est écrit dans doc/rapport_sync_db_AAAA-MM-JJ.sql, avec son résumé Markdown dans doc/rapport_sync_db_AAAA-MM-JJ.md, selon la date du jour, dans le dépôt principal configuré par WT_MAIN_ROOT. Une nouvelle exécution le même jour actualise ces fichiers. Une copie de chaque rapport et les preuves détaillées restent dans le dossier privé doc/sync_incwo_db_<date>/.
 
 Le résumé Markdown est finalisé en fin d'exécution, y compris en cas d'erreur. Il indique si la structure a été modifiée, le nombre de changements proposés ou appliqués, les colonnes encore différentes avec leurs types et les tables non créées. Il explique les champs sans type SQL, donne les chemins des sauvegardes et indique explicitement si aucun dump final n'a été créé. « Aucun changement automatique applicable » ne signifie pas que toute la structure est identique à celle décrite par l'API.
 
@@ -38,7 +38,25 @@ Le service MySQL est efsql1-lan du profil Compose des outils, et la base cible e
 doc/tools/sync_incwo_db.sh --container bofacile-efsql1-lan-1
 doc/tools/sync_incwo_db.sh --container bofacile-efsql1-lan-1 --apply
 
-Les options --database, --service, --output, --http-timeout et --command-timeout sont décrites dans --help. --output doit désigner un nouveau dossier. Les mots de passe restent dans l'environnement du conteneur, sans figurer dans les arguments côté hôte.
+Les options --database, --service, --output, --http-timeout et --command-timeout sont décrites dans --help. --output doit désigner un nouveau dossier. Le mot de passe MySQL reste dans l’environnement du conteneur. Le mot de passe local des deux utilisateurs est lu dans le .env privé des outils ; aucun de ces secrets ne figure dans les arguments côté hôte.
+
+Mots de passe des deux comptes locaux avant les dumps
+
+Ajoute ton mot de passe local commun dans le fichier privé doc/tools/.env :
+
+PASSWORD='ton-mot-de-passe-local'
+
+Il s’agit de la clé PASSWORD, sans préfixe WT_. Elle est lue à côté du script, même si WT_CONFIG_FILE désigne un autre profil. Une variable PASSWORD exportée dans le terminal ne remplace pas cette valeur. Le fichier est lu comme des données, sans exécution shell ni interpolation ; respecte les règles de guillemets du .env. Ne mets pas le vrai mot de passe dans cette documentation.
+
+Après la comparaison ou l’application de structure réussie, juste avant les deux dumps finaux, le script tente de modifier les comptes locaux d’identifiants 43 et 840280. Les adresses attendues sont définies dans LOCAL_PASSWORD_USERS ; chaque couple identifiant/e-mail est contrôlé avant sauvegarde. Ce traitement a aussi lieu sans --apply, et lorsqu’aucune modification de structure n’est nécessaire.
+
+Le programme compagnon sync_incwo_passwords.rb, distribué à côté du script Python, exécute cette étape. La procédure suit la fiche de changement de mot de passe (../../good_to_know/change_user_password.md) : affecter password et password_confirmation, remettre password_set et pass_fail_cumul à 0, appeler save!, puis vérifier reload.authenticated?. Les deux comptes sont traités dans une transaction InnoDB ; une validation refusée ou une identité incorrecte annule les changements de cette transaction. Le sel est conservé et le hash est calculé par le modèle Rails.
+
+Un conteneur applicatif déjà démarré et monté sur le dépôt principal est nécessaire. Avant toute modification, le programme Ruby vérifie l’environnement building, le nom de la base et l’UUID du serveur MySQL : ils doivent correspondre à la base locale que le script va exporter. Aucun conteneur applicatif n’est démarré automatiquement pour cette étape. Un --container ou --database différent ne doit pas conduire à modifier un autre serveur.
+
+Cette préparation ne bloque jamais les dumps. Si PASSWORD est absent ou vide, si un compte ne correspond pas, si aucun conteneur applicatif n’est disponible ou si la procédure échoue, un avertissement est ajouté aux rapports JSON et Markdown et affiché dans le terminal. Les dumps continuent avec les mots de passe présents en base. Les autres erreurs du script (comparaison, application de structure ou dump) gardent leur comportement bloquant.
+
+Le rapport password_preparation indique updated ou warning, sans mot de passe ni hash. Le secret est transmis au processus Ruby par son entrée standard, sans argument de commande ni variable d’environnement Docker. Les diagnostics Rails sont capturés et ne sont pas recopiés dans le rapport. Si un dump échoue après un changement de mot de passe réussi, ce changement reste dans la base locale. Les sauvegardes de sécurité prises avant l’application de structure restent antérieures à cette préparation. La double authentification n’est pas modifiée.
 
 Changements automatiques
 
@@ -46,7 +64,7 @@ Changements automatiques
 - Élargir un VARCHAR, un TEXT ou une variante de texte, en conservant tous les autres attributs de la colonne. Pour un passage de VARCHAR à TEXT, vérifier la capacité maximale en octets selon le jeu de caractères réel. Une valeur par défaut non NULL empêche cette conversion automatique.
 - Créer une table absente uniquement si son DDL fait partie des sources connues de sync_incwo_db.py et si tous ses champs et types concordent avec l'API. Les sources initiales concernent les passkeys et les tables WLI. Seul le CREATE TABLE est extrait ; les autres instructions des migrations ne sont jamais exécutées.
 
-Les réductions de types, changements numériques, changements de signe, conversions de dates et changements de types d'identifiants restent manuels. Les champs sans type SQL, les tables sans champs exposés et les tables absentes sans DDL connu ne sont pas inventés. Les colonnes et tables locales non exposées par l'API sont conservées. Aucun DROP, DELETE, UPDATE, TRUNCATE ou changement de schema_info n'est généré.
+Les réductions de types, changements numériques, changements de signe, conversions de dates et changements de types d'identifiants restent manuels. Les champs sans type SQL, les tables sans champs exposés et les tables absentes sans DDL connu ne sont pas inventés. Les colonnes et tables locales non exposées par l'API sont conservées. Le plan de structure ne génère aucun DROP, DELETE, UPDATE, TRUNCATE ou changement de schema_info. La préparation distincte des mots de passe sauvegarde les deux comptes via le modèle User.
 
 Il s'agit donc d'une synchronisation partielle et conservatrice. Les métadonnées applicatives ne permettent pas de garantir l'identité des index, contraintes, valeurs par défaut et nullabilités avec la production. Les écarts laissés manuels restent présents après --apply.
 
@@ -62,7 +80,7 @@ L'application automatique nécessite Python 3.11 ou plus récent, Docker, un MyS
 6. Revérifier la structure et faire une nouvelle sauvegarde complète avant l'application réelle.
 7. Appliquer les instructions testées, en mode strict et sans option permettant de continuer après une erreur, puis comparer à nouveau les définitions et toutes les valeurs préexistantes des tables concernées.
 8. Restaurer le mode d'écriture initial et reprendre les clients mis en pause par le script, même en cas d'erreur ou d'interruption. Supprimer le conteneur de test et ses données jetables.
-9. Après le succès de ces contrôles, exporter les deux sauvegardes datées, données et structure, conformément à la fiche MySQL.
+9. Après le succès de ces contrôles, tenter la préparation facultative des mots de passe locaux, en consignant tout avertissement, puis exporter les deux sauvegardes datées, données et structure, conformément à la fiche MySQL.
 
 Les tables concernées doivent posséder une clé primaire permettant d'ordonner les lignes. Tous les avertissements SQL sont bloquants, sauf les messages précis de dépréciation de l'alias utf8, du jeu utf8mb3 et de ses collations, qui ne changent pas l'encodage et sont consignés dans le rapport. Le DDL MySQL peut reconstruire ou verrouiller une table et provoque des commits implicites. Le temps de traitement et l'espace requis dépendent du volume de la base : deux sauvegardes complètes compressées et une restauration isolée précèdent les deux exports SQL de fin de traitement.
 

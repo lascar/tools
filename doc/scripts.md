@@ -264,7 +264,7 @@ sync_incwo_db.sh
 sync_incwo_db.sh --apply
 ```
 
-Sans argument, compare la structure de `facile_building` avec les métadonnées Incwo sans modifier la base. Après toute exécution réussie, crée les dumps complets et de structure dans `doc/`, même lorsqu'aucun changement n'est nécessaire. Les noms existants sont conservés ; les nouveaux dumps reçoivent alors un suffixe horaire.
+Sans argument, compare la structure de `facile_building` avec les métadonnées Incwo sans modifier la structure. Avant les dumps finaux, tente de préparer les mots de passe des deux comptes locaux avec `PASSWORD` du fichier privé `doc/tools/.env`, selon la procédure Rails documentée. Un échec de cette étape est signalé dans le rapport et ne bloque pas les dumps. Après toute exécution réussie, crée les dumps complets et de structure dans `doc/`, même lorsqu'aucun changement n'est nécessaire. Les noms existants sont conservés ; les nouveaux dumps reçoivent alors un suffixe horaire.
 
 Les rapports du jour sont `doc/rapport_sync_db_AAAA-MM-JJ.sql` et `doc/rapport_sync_db_AAAA-MM-JJ.md`. Le résumé indique les changements, les écarts laissés manuels, les vérifications encore à faire et les chemins des sauvegardes. Les preuves et une copie de chaque rapport sont archivées par exécution.
 

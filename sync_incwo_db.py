@@ -21,6 +21,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 URL = 'https://www.incwo.com/webservice/incwo_get_metadata'
+LOCAL_PASSWORD_USERS = ((43, 'gbesse@le-ker.com'), (840280, 'roundsquare@laposte.net'))
 SOURCES = {
     'user_passkeys': 'db/daily_migrate/20261006_create_user_passkeys.sql',
     'user_passkey_challenges': 'db/daily_migrate/20261006_create_user_passkeys.sql',
@@ -43,6 +44,35 @@ TYPE = re.compile(r'(?:tinyint|smallint|mediumint|int|integer|bigint)(?:\(\d+\))
 
 class SyncError(RuntimeError):
     pass
+
+
+def dump_password():
+    # Lire le fichier des outils, jamais une variable PASSWORD ambiante ou un
+    # profil alternatif susceptible de viser une autre installation.
+    from _wt_config import load_env
+    path = Path(__file__).resolve().parent / '.env'
+    try:
+        value = load_env(path).get('PASSWORD', '')
+    except (OSError, ValueError):
+        raise SyncError('Impossible de lire PASSWORD dans doc/tools/.env.') from None
+    if not value.strip():
+        raise SyncError('PASSWORD absent ou vide dans doc/tools/.env : mots de passe non modifiés.')
+    return value
+
+
+def prepare_dump_passwords(live):
+    try:
+        password = dump_password()
+    except SyncError as error:
+        return {'status': 'warning', 'message': str(error) + ' Les dumps sont poursuivis avec les mots de passe présents en base.'}
+    try:
+        return live.prepare_dump_passwords(password)
+    except Exception:
+        # Cette préparation est facultative : toute erreur est signalée, mais
+        # ne doit pas empêcher les sauvegardes demandées. Ne pas recopier un
+        # diagnostic externe, qui pourrait contenir le secret.
+        return {'status': 'warning', 'message':
+                'Préparation des mots de passe non confirmée (PASSWORD absent/invalide, comptes non conformes ou erreur SQL). Vérifie doc/tools/.env et les deux comptes locaux. Les dumps sont poursuivis avec les valeurs présentes en base.'}
 
 
 def ident(name):
@@ -366,6 +396,30 @@ class Database:
             raw.seek(0)
             command(self.cli() + ['--binary-mode', self.database], timeout=self.timeout,
                     stdin=raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    def prepare_dump_passwords(self, password):
+        """Suit good_to_know/change_user_password via le modèle Rails local."""
+        from _wt_common import MAIN, APP_PATH
+        from _wt_docker import app_mounts
+        if not isinstance(password, str) or not password.strip():
+            raise SyncError('PASSWORD ne doit pas être vide.')
+        engine = self.sql("SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA='%s' AND TABLE_NAME='users';" % self.database).strip()
+        if engine != 'InnoDB':
+            raise SyncError('La préparation des mots de passe exige une table users InnoDB.')
+        apps = sorted(container for service, root, container, running in app_mounts(True) if root == MAIN)
+        if not apps:
+            raise SyncError('Aucun conteneur applicatif du dépôt principal en cours.')
+        server_uuid = self.sql('SELECT @@server_uuid;').strip()
+        code = Path(__file__).with_name('sync_incwo_passwords.rb').read_text()
+        # stdin transmet le secret ; ni arguments, ni environnement Docker, ni
+        # rapport ne le contiennent. La sortie Rails reste capturée et privée.
+        payload = json.dumps({'password': password, 'users': LOCAL_PASSWORD_USERS,
+                              'database': self.database, 'server_uuid': server_uuid}).encode()
+        args = ['docker', 'exec', '-i', '-w', APP_PATH, apps[0], 'ruby', '-e', code]
+        result = command(args, timeout=self.timeout, input=payload, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.stderr or result.stdout.splitlines()[-1:] != [b'PASSWORDS_UPDATED']:
+            raise SyncError('La procédure Rails de changement des mots de passe n’a pas été confirmée.')
+        return {'status': 'updated', 'user_ids': [uid for uid, email in LOCAL_PASSWORD_USERS]}
 
     def success_backups(self, directory):
         """Exporte les deux dumps datés de la fiche good_to_know/mysql.html."""
@@ -761,7 +815,12 @@ def markdown_summary(report):
     else:
         lines += ['Comparaison incomplète : aucun bilan fiable disponible.', '']
     if report.get('data_unchanged'):
-        lines += ['', 'Valeurs préexistantes vérifiées identiques avant/après application.']
+        lines += ['', 'Valeurs préexistantes vérifiées identiques avant/après application de la structure, avant la préparation des mots de passe.']
+    if report.get('password_preparation', {}).get('status') == 'updated':
+        lines += ['', '## Mots de passe locaux', '',
+                  'Mot de passe commun configuré dans `doc/tools/.env` appliqué aux comptes locaux 43 et 840280 avant les dumps finaux. Le secret et ses empreintes ne sont pas consignés. Ces changements restent en base même si un dump échoue ensuite.']
+    elif report.get('password_preparation'):
+        lines += ['', '## Avertissement — mots de passe locaux', '', report['password_preparation']['message']]
     if report.get('error'):
         lines += ['', '## Erreur', '', code(report['error'])]
         if report.get('synchronization_success'):
@@ -842,6 +901,11 @@ def main(argv=None):
             else:
                 report['comparison_success'] = True
                 print('Comparaison terminée. Aucune modification de structure.', flush=True)
+            save()
+            print('Préparation des mots de passe des deux comptes locaux avant les dumps…', flush=True)
+            report['password_preparation'] = prepare_dump_passwords(live)
+            if report['password_preparation']['status'] == 'warning':
+                print('AVERTISSEMENT : ' + report['password_preparation']['message'], flush=True)
             save()
             print('Sauvegarde des données et de la structure dans doc/…', flush=True)
             report['post_success_backup'] = live.success_backups(MAIN / 'doc')

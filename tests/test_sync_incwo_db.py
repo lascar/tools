@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import sync_incwo_db as sync
+import _wt_config
 
 
 def ddl(kind='varchar(20)', extra=' DEFAULT NULL'):
@@ -171,6 +172,60 @@ class PlanTests(unittest.TestCase):
             sync.main(['--apply', '--metadata-file', '/does/not/exist'])
 
 
+class PasswordTests(unittest.TestCase):
+    def test_password_is_read_inertly_from_tools_env_only(self):
+        with patch.dict(os.environ, {'PASSWORD': 'wrong-ambient-password'}), \
+                patch.object(Path, 'read_text', return_value="PASSWORD='test $(echo ignored) é'\n") as read:
+            self.assertEqual(sync.dump_password(), 'test $(echo ignored) é')
+            read.assert_called_once()
+
+    def test_missing_empty_and_invalid_password_config_is_rejected_without_leak(self):
+        for content in ['', 'PASSWORD=', "PASSWORD='   '", 'PASSWORD=secret with spaces']:
+            with self.subTest(content=content), patch.object(Path, 'read_text', return_value=content):
+                with self.assertRaises(sync.SyncError) as caught:
+                    sync.dump_password()
+                self.assertNotIn('secret', str(caught.exception))
+
+    def test_missing_password_is_reported_without_updating_database(self):
+        with patch.object(sync, 'dump_password', side_effect=sync.SyncError('PASSWORD absent')), \
+                patch.object(sync, 'Database') as database:
+            result = sync.prepare_dump_passwords(database)
+            self.assertEqual(result['status'], 'warning')
+            self.assertIn('PASSWORD absent', result['message'])
+            database.prepare_dump_passwords.assert_not_called()
+
+    def test_external_errors_do_not_expose_secret_or_sql(self):
+        db = MagicMock()
+        db.prepare_dump_passwords.side_effect = RuntimeError('secret-SQL-contents')
+        with patch.object(sync, 'dump_password', return_value='secret-SQL-contents'):
+            result = sync.prepare_dump_passwords(db)
+        self.assertEqual(result['status'], 'warning')
+        self.assertNotIn('secret-SQL-contents', result['message'])
+
+    def test_rails_receives_secret_only_on_stdin_and_checks_target_server(self):
+        import json
+        db = sync.Database('mysql-fixture', 'fixture_db')
+        result = type('Result', (), {'stdout': b'PASSWORDS_UPDATED\n', 'stderr': b''})()
+        with patch.object(db, 'sql', side_effect=['InnoDB\n', 'fixture-uuid\n']), \
+                patch('_wt_docker.app_mounts', return_value=[('shell', _wt_config.configured_path('MAIN_ROOT'), 'app-fixture', True)]), \
+                patch.object(sync, 'command', return_value=result) as command:
+            self.assertEqual(db.prepare_dump_passwords('secret-private')['status'], 'updated')
+        args = command.call_args.args[0]
+        self.assertNotIn('secret-private', ' '.join(args))
+        payload = json.loads(command.call_args.kwargs['input'])
+        self.assertEqual(payload['password'], 'secret-private')
+        self.assertEqual(payload['database'], 'fixture_db')
+        self.assertEqual(payload['server_uuid'], 'fixture-uuid')
+        self.assertEqual(payload['users'], [[43, 'gbesse@le-ker.com'], [840280, 'roundsquare@laposte.net']])
+
+    def test_nontransactional_users_table_is_refused_before_update(self):
+        db = sync.Database('fixture', 'fixture_db')
+        with patch.object(db, 'sql', return_value='MyISAM\n') as sql:
+            with self.assertRaisesRegex(sync.SyncError, 'InnoDB'):
+                db.prepare_dump_passwords('fixture-password')
+            self.assertEqual(sql.call_count, 1)
+
+
 class FakeDatabase:
     def __init__(self, events, name, schema, corrupt=False, fail_backup=False):
         self.events, self.name, self.current = events, name, copy.deepcopy(schema)
@@ -302,7 +357,7 @@ class SuccessBackupTests(unittest.TestCase):
                 sync.Database('unused', 'facile_building').success_backups(folder)
             self.assertEqual(list(Path(folder).iterdir()), [])
 
-    def run_main(self, *, apply=True, operations=True, sync_error=False, backup_error=False):
+    def run_main(self, *, apply=True, operations=True, sync_error=False, backup_error=False, password_error=False, missing_password=False):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             (root / 'doc').mkdir()
@@ -312,6 +367,8 @@ class SuccessBackupTests(unittest.TestCase):
             live.encodings.return_value = {'samples.label': 3}
             live.success_backups.return_value = {'data': {'path': 'data.sql'}, 'structure': {'path': 'struct.sql'}}
             events = []
+            live.prepare_dump_passwords.side_effect = (sync.SyncError('Comptes locaux absents') if password_error else
+                lambda *args: events.append('passwords') or {'status': 'updated', 'user_ids': [43, 840280]})
             live.success_backups.side_effect = (sync.SyncError('Sauvegarde finale en échec') if backup_error else
                                                lambda *args: events.append('backup') or live.success_backups.return_value)
             def execute(*args):
@@ -320,7 +377,9 @@ class SuccessBackupTests(unittest.TestCase):
                     raise sync.SyncError('Synchronisation en échec')
             with patch('_wt_common.MAIN', root), patch.object(sync, 'Database', return_value=live), \
                     patch.object(sync, 'collect_metadata', return_value=metadata({'label': 'varchar(50)' if operations else 'varchar(20)'})), \
-                    patch.object(sync, 'execute', side_effect=execute):
+                    patch.object(sync, 'execute', side_effect=execute), \
+                    patch.object(sync, 'dump_password', side_effect=sync.SyncError('PASSWORD absent') if missing_password else None,
+                                 return_value='fixture-password'):
                 args = ['--container', 'fixture', '--output', str(output)] + (['--apply'] if apply else [])
                 try:
                     sync.main(args)
@@ -358,13 +417,13 @@ class SuccessBackupTests(unittest.TestCase):
 
     def test_main_backs_up_only_after_successful_application(self):
         events, report, count = self.run_main()
-        self.assertEqual(events, ['execute', 'backup'])
+        self.assertEqual(events, ['execute', 'passwords', 'backup'])
         self.assertEqual(report['status'], 'applied')
         self.assertIn('post_success_backup', report)
 
     def test_main_backs_up_successful_noop_apply(self):
         events, report, count = self.run_main(operations=False)
-        self.assertEqual(events, ['backup'])
+        self.assertEqual(events, ['passwords', 'backup'])
         self.assertEqual(report['status'], 'no_change')
 
     def test_main_does_not_back_up_failed_sync(self):
@@ -373,7 +432,7 @@ class SuccessBackupTests(unittest.TestCase):
 
     def test_main_backs_up_successful_comparison(self):
         events, report, count = self.run_main(apply=False)
-        self.assertEqual(events, ['backup'])
+        self.assertEqual(events, ['passwords', 'backup'])
         self.assertTrue(report['comparison_success'])
         self.assertEqual(report['status'], 'comparison_only')
 
@@ -387,6 +446,25 @@ class SuccessBackupTests(unittest.TestCase):
         self.assertTrue(report['synchronization_success'])
         self.assertEqual(report['status'], 'failed')
         self.assertNotIn('post_success_backup', report)
+
+    def test_password_failure_is_reported_and_final_dumps_continue(self):
+        events, report, count = self.run_main(password_error=True)
+        self.assertEqual(events, ['execute', 'backup'])
+        self.assertEqual(count, 1)
+        self.assertEqual(report['status'], 'applied')
+        self.assertEqual(report['password_preparation']['status'], 'warning')
+        self.assertIn('Avertissement — mots de passe locaux', sync.markdown_summary(report))
+
+    def test_missing_password_is_reported_and_final_dumps_continue(self):
+        events, report, count = self.run_main(apply=False, missing_password=True)
+        self.assertEqual(events, ['backup'])
+        self.assertEqual(count, 1)
+        self.assertTrue(report['comparison_success'])
+        self.assertEqual(report['password_preparation']['status'], 'warning')
+
+    def test_password_change_remains_reported_if_dump_fails(self):
+        events, report, count = self.run_main(backup_error=True)
+        self.assertEqual(report['password_preparation']['user_ids'], [43, 840280])
 
 
 @unittest.skipUnless(os.environ.get('INCWO_SYNC_TEST_MYSQL_CONTAINER'), 'MySQL isolé requis explicitement')
